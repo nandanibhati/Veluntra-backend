@@ -1,0 +1,81 @@
+/* eslint-disable no-console */
+/**
+ * Production bootstrap — deliberately NOT the same script as prisma/seed.js.
+ *
+ * The dev seed (seed.js) creates demo accounts with publicly-known passwords and a
+ * full catalogue of sample products; none of that belongs in a real deployment.
+ * This script only creates what a brand-new production database genuinely needs
+ * to function, and nothing else:
+ *
+ *   - The Settings singleton row (id=1), so the storefront/admin panel has a row to read.
+ *   - At least one shipping method, so checkout has something to offer.
+ *   - Exactly one Super Admin account, but ONLY if SUPERADMIN_EMAIL and
+ *     SUPERADMIN_PASSWORD are provided via the environment — never hardcoded,
+ *     and skipped entirely (not defaulted) if they're absent.
+ *
+ * Safe to run multiple times (every step is idempotent).
+ */
+const { PrismaClient } = require("@prisma/client");
+const bcrypt = require("bcryptjs");
+
+const prisma = new PrismaClient();
+
+async function main() {
+  console.log("Running production bootstrap...");
+
+  await prisma.settings.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      id: 1,
+      storeName: process.env.STORE_NAME || "My Store",
+      currency: process.env.STORE_CURRENCY || "GBP",
+      currencySymbol: process.env.STORE_CURRENCY_SYMBOL || "£",
+      contactEmail: process.env.STORE_CONTACT_EMAIL || null,
+    },
+  });
+  console.log("  Settings row ready.");
+
+  const defaultShippingMethod = await prisma.shippingMethod.findFirst();
+  if (!defaultShippingMethod) {
+    await prisma.shippingMethod.create({
+      data: { name: "Standard", description: "Standard delivery", price: 0, etaDays: "5-7 business days" },
+    });
+    console.log("  Created a default \"Standard\" shipping method — add more from the admin panel.");
+  }
+
+  const { SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD, SUPERADMIN_NAME } = process.env;
+  if (SUPERADMIN_EMAIL && SUPERADMIN_PASSWORD) {
+    const existing = await prisma.user.findUnique({ where: { email: SUPERADMIN_EMAIL.toLowerCase() } });
+    if (existing) {
+      console.log(`  Super Admin ${SUPERADMIN_EMAIL} already exists — leaving it untouched.`);
+    } else {
+      if (SUPERADMIN_PASSWORD.length < 12) {
+        throw new Error("SUPERADMIN_PASSWORD must be at least 12 characters for a production bootstrap.");
+      }
+      const passwordHash = await bcrypt.hash(SUPERADMIN_PASSWORD, 12);
+      await prisma.user.create({
+        data: {
+          name: SUPERADMIN_NAME || "Super Admin",
+          email: SUPERADMIN_EMAIL.toLowerCase(),
+          passwordHash,
+          role: "superadmin",
+          emailVerifiedAt: new Date(),
+        },
+      });
+      console.log(`  Created Super Admin account: ${SUPERADMIN_EMAIL}`);
+    }
+  } else {
+    console.log("  SUPERADMIN_EMAIL / SUPERADMIN_PASSWORD not set — skipping admin account creation.");
+    console.log("  Set both env vars and re-run this script to provision your first admin login.");
+  }
+
+  console.log("Production bootstrap complete.");
+}
+
+main()
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  })
+  .finally(() => prisma.$disconnect());

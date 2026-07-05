@@ -1,0 +1,48 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:?POSTGRES_USER must be set}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}"
+      POSTGRES_DB: "${POSTGRES_DB:?POSTGRES_DB must be set}"
+    # No host port mapping — the database is only reachable from the api container over
+    # the internal Docker network, never directly from the host or the internet.
+    volumes:
+      - veluntra_prod_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${API_PORT:-4000}:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # No fallback values for anything secret — the app refuses to boot with a missing
+      # or placeholder secret in production (see src/config/env.js).
+      CORS_ORIGINS: "${CORS_ORIGINS:?set CORS_ORIGINS to your real frontend domain(s)}"
+      JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET - see .env.production.example for how to generate one}"
+      JWT_REFRESH_SECRET: "${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET to a different random value than JWT_ACCESS_SECRET}"
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-30d}
+      UPLOAD_DIR: uploads
+      MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-5}
+    volumes:
+      - veluntra_prod_uploads:/app/uploads
+    # Deliberately does NOT run any seed script — the database is bootstrapped once,
+    # manually, via: docker compose -f docker-compose.prod.yml exec api node prisma/seed.production.js
+    command: sh -c "npx prisma migrate deploy && node src/server.js"
+
+volumes:
+  veluntra_prod_pgdata:
+  veluntra_prod_uploads:

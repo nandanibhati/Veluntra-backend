@@ -1,0 +1,803 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+
+enum Role {
+  customer
+  seller
+  admin
+  superadmin
+}
+
+enum UserStatus {
+  active
+  suspended
+}
+
+enum ProductStatus {
+  draft
+  published
+  archived
+  hidden
+  upcoming
+  discontinued
+}
+
+enum OptionKind {
+  color
+  size
+  storage
+  material
+  custom
+}
+
+enum CouponType {
+  percent
+  fixed
+  free_shipping
+}
+
+enum CouponScope {
+  all
+  category
+  brand
+  product
+}
+
+enum CouponStatus {
+  active
+  disabled
+}
+
+enum PromotionType {
+  flash_sale
+  deal_of_day
+  bogo
+  percentage
+  fixed
+  category_discount
+  brand_discount
+  product_discount
+  first_order
+  festival
+}
+
+enum PromotionScope {
+  all
+  category
+  brand
+  product
+}
+
+enum OrderStatus {
+  pending
+  processing
+  shipped
+  delivered
+  cancelled
+  return_requested
+  returned
+  exchange_requested
+  exchanged
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  refunded
+}
+
+enum PaymentMethod {
+  card
+  paypal
+  applepay
+  cod
+}
+
+enum ActivityScope {
+  users
+  orders
+  products
+  catalog
+  coupons
+  promotions
+  settings
+  reviews
+  roles
+  homepage
+  system
+}
+
+enum HomepageSectionType {
+  hero_banner
+  slider
+  categories
+  featured_products
+  trending_products
+  best_sellers
+  flash_sale
+  collections
+  brands
+  testimonials
+  announcement
+  ad_banner
+  custom
+}
+
+/**
+ * One row per homepage block (hero, sliders, featured products, etc.). `config` is a
+ * free-form JSON payload whose shape depends on `type` (banner image/link, slide list,
+ * copy overrides...) — the storefront still sources live product/category/review DATA
+ * from their own tables; this only controls which sections show, their order, and their
+ * editorial copy/images, so nothing here can go stale the way hardcoded content would.
+ */
+model HomepageSection {
+  id        String              @id @default(uuid())
+  type      HomepageSectionType
+  title     String?
+  config    Json?
+  position  Int                 @default(0)
+  enabled   Boolean             @default(true)
+  startsAt  DateTime?           @map("starts_at")
+  endsAt    DateTime?           @map("ends_at")
+  createdAt DateTime            @default(now()) @map("created_at")
+  updatedAt DateTime            @updatedAt @map("updated_at")
+
+  @@index([position])
+  @@map("homepage_sections")
+}
+
+enum DevicePlatform {
+  ios
+  android
+  web
+}
+
+enum ReviewStatus {
+  pending
+  approved
+  rejected
+}
+
+// ---------- Models ----------
+
+model User {
+  id           String     @id @default(uuid())
+  name         String
+  email        String     @unique
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  passwordHash String     @map("password_hash")
+  role         Role       @default(customer)
+  status       UserStatus @default(active)
+  isGuest      Boolean    @default(false) @map("is_guest")
+  avatarUrl    String?    @map("avatar_url")
+  rewardPoints Int        @default(0) @map("reward_points")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  store              Store?
+  addresses          Address[]
+  reviews            Review[]
+  carts              Cart[]
+  orders             Order[]
+  wishlistItems      WishlistItem[]
+  notifications      Notification[]
+  activityLogs       ActivityLog[]
+  refreshTokens      RefreshToken[]
+  deviceTokens       DeviceToken[]
+  passwordResetTokens PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  couponRedemptions  CouponRedemption[]
+  inventoryTransactions InventoryTransaction[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
+model DeviceToken {
+  id        String         @id @default(uuid())
+  userId    String         @map("user_id")
+  token     String         @unique
+  platform  DevicePlatform
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+enum StoreStatus {
+  pending
+  approved
+  suspended
+}
+
+model Store {
+  id                String      @id @default(uuid())
+  name              String
+  ownerId           String      @unique @map("owner_id")
+  status            StoreStatus @default(pending)
+  commissionPercent Decimal?    @map("commission_percent") @db.Decimal(5, 2) // null = use platform default
+  createdAt         DateTime    @default(now()) @map("created_at")
+
+  owner    User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  products Product[]
+  orders   Order[]
+  coupons  Coupon[]
+
+  @@map("stores")
+}
+
+model Address {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  firstName  String   @map("first_name")
+  lastName   String   @map("last_name")
+  line1      String
+  line2      String?
+  city       String
+  state      String?
+  postalCode String   @map("postal_code")
+  country    String   @default("GB")
+  phone      String?
+  isDefault  Boolean  @default(false) @map("is_default")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ordersShipping Order[] @relation("ShippingAddress")
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+model Category {
+  id              String     @id @default(uuid())
+  name            String
+  slug            String     @unique
+  imageUrl        String?    @map("image_url") // also used as the category banner
+  featured        Boolean    @default(false)
+  position        Int        @default(0)
+  metaTitle       String?    @map("meta_title")
+  metaDescription String?    @map("meta_description")
+  parentId        String?    @map("parent_id")
+
+  parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Category[] @relation("CategoryTree")
+  products    Product[]
+  coupons     Coupon[]
+  promotions  Promotion[]
+
+  @@map("categories")
+}
+
+model Brand {
+  id         String      @id @default(uuid())
+  name       String
+  slug       String      @unique
+  logoUrl    String?     @map("logo_url")
+  featured   Boolean     @default(false)
+  position   Int         @default(0)
+  products   Product[]
+  coupons    Coupon[]
+  promotions Promotion[]
+
+  @@map("brands")
+}
+
+model Product {
+  id             String        @id @default(uuid())
+  storeId        String        @map("store_id")
+  categoryId     String        @map("category_id")
+  brandId        String        @map("brand_id")
+  name           String
+  slug           String        @unique
+  sku            String        @unique
+  barcode        String?
+  description    String        @db.Text
+  shortDescription String?     @map("short_description")
+  price          Decimal       @db.Decimal(10, 2)
+  oldPrice       Decimal?      @map("old_price") @db.Decimal(10, 2) // shown as the crossed-out MRP
+  costPrice      Decimal?      @map("cost_price") @db.Decimal(10, 2)
+  stock          Int           @default(0)
+  reservedStock  Int           @default(0) @map("reserved_stock")
+  lowStockThreshold Int        @default(10) @map("low_stock_threshold")
+  status         ProductStatus @default(draft)
+  isNew          Boolean       @default(false) @map("is_new")
+  isFeatured     Boolean       @default(false) @map("is_featured")
+  isTrending     Boolean       @default(false) @map("is_trending")
+  isBestSeller   Boolean       @default(false) @map("is_best_seller")
+  badge          String?
+  // Per-product override of the global animation preset (Settings.animationConfig).
+  // Null/absent means "inherit the global preset". Shape: { enabled, type, speed,
+  // intensity, heroHighlight, homepageHighlight }.
+  animationOverride Json?      @map("animation_override")
+  tags           String[]      @default([])
+  highlights     String[]      @default([])
+  specifications Json          @default("[]")
+  videos         String[]      @default([])
+  warranty       String?
+  countryOfOrigin String?      @map("country_of_origin")
+  hsnCode        String?       @map("hsn_code")
+  gstClass       String?       @map("gst_class")
+  weight         Decimal?      @db.Decimal(8, 3) // kg
+  length         Decimal?      @db.Decimal(8, 2) // cm
+  width          Decimal?      @db.Decimal(8, 2) // cm
+  height         Decimal?      @db.Decimal(8, 2) // cm
+  shippingClass  String?       @map("shipping_class")
+  estimatedDeliveryDays Int?   @map("estimated_delivery_days")
+  codAvailable   Boolean       @default(true) @map("cod_available")
+  metaTitle      String?       @map("meta_title")
+  metaDescription String?      @map("meta_description")
+  canonicalUrl   String?       @map("canonical_url")
+  ogImage        String?       @map("og_image")
+  views          Int           @default(0)
+  ratingAvg      Float         @default(0) @map("rating_avg")
+  ratingCount    Int           @default(0) @map("rating_count")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  store        Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  category     Category         @relation(fields: [categoryId], references: [id])
+  brand        Brand            @relation(fields: [brandId], references: [id])
+  images       ProductImage[]
+  options      ProductOption[]
+  variants     ProductVariant[]
+  reviews      Review[]
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
+  wishlistedBy WishlistItem[]
+  promotions   Promotion[]
+  inventoryTransactions InventoryTransaction[]
+
+  @@index([categoryId])
+  @@index([brandId])
+  @@index([storeId])
+  @@index([status])
+  @@index([storeId, status])
+  @@map("products")
+}
+
+model ProductImage {
+  id        String  @id @default(uuid())
+  productId String  @map("product_id")
+  url       String
+  position  Int     @default(0)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_images")
+}
+
+/** Defines the *available* attribute values for a product (e.g. "Color: Black"). */
+model ProductOption {
+  id        String     @id @default(uuid())
+  productId String     @map("product_id")
+  kind      OptionKind
+  label     String
+  extra     String?
+  inStock   Boolean    @default(true) @map("in_stock")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_options")
+}
+
+/** A specific sellable combination of options (e.g. Black + 128GB), with its own SKU/price/stock. */
+model ProductVariant {
+  id         String   @id @default(uuid())
+  productId  String   @map("product_id")
+  sku        String   @unique
+  barcode    String?
+  combination Json    // e.g. { "color": "Black", "storage": "128GB" }
+  price      Decimal? @db.Decimal(10, 2) // null = inherit product.price
+  stock      Int      @default(0)
+  weight     Decimal? @db.Decimal(8, 3) // kg, null = inherit product.weight
+  imageUrl   String?  @map("image_url")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@index([productId])
+  @@map("product_variants")
+}
+
+model Review {
+  id           String       @id @default(uuid())
+  productId    String       @map("product_id")
+  userId       String       @map("user_id")
+  rating       Int
+  title        String
+  body         String       @db.Text
+  status       ReviewStatus @default(pending)
+  isVerified   Boolean      @default(false) @map("is_verified")
+  isFeatured   Boolean      @default(false) @map("is_featured")
+  helpfulCount Int          @default(0) @map("helpful_count")
+  sellerReply  String?      @map("seller_reply") @db.Text
+  reportCount  Int          @default(0) @map("report_count")
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([status])
+  @@map("reviews")
+}
+
+model Cart {
+  id        String   @id @default(uuid())
+  userId    String?  @map("user_id")
+  sessionId String?  @map("session_id")
+  couponId  String?  @map("coupon_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user   User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coupon Coupon?    @relation(fields: [couponId], references: [id])
+  items  CartItem[]
+
+  @@index([userId])
+  @@index([sessionId])
+  @@map("carts")
+}
+
+model CartItem {
+  id              String   @id @default(uuid())
+  cartId          String   @map("cart_id")
+  productId       String   @map("product_id")
+  variantId       String?  @map("variant_id")
+  variantSnapshot Json?    @map("variant_snapshot")
+  quantity        Int      @default(1)
+  priceSnapshot   Decimal  @map("price_snapshot") @db.Decimal(10, 2)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  cart    Cart            @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([cartId])
+  @@map("cart_items")
+}
+
+model Coupon {
+  id             String       @id @default(uuid())
+  code           String       @unique
+  type           CouponType
+  value          Decimal      @db.Decimal(10, 2)
+  scope          CouponScope  @default(all)
+  categoryId     String?      @map("category_id")
+  brandId        String?      @map("brand_id")
+  productId      String?      @map("product_id")
+  storeId        String?      @map("store_id") // null = platform-wide (admin); set = seller's own coupon
+  minSubtotal    Decimal?     @map("min_subtotal") @db.Decimal(10, 2)
+  maxDiscount    Decimal?     @map("max_discount") @db.Decimal(10, 2)
+  usageLimit     Int          @map("usage_limit")
+  usageCount     Int          @default(0) @map("usage_count")
+  perUserLimit   Int          @default(1) @map("per_user_limit")
+  autoApply      Boolean      @default(false) @map("auto_apply")
+  enabled        Boolean      @default(true)
+  expiresAt      DateTime     @map("expires_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  category    Category?          @relation(fields: [categoryId], references: [id])
+  brand       Brand?             @relation(fields: [brandId], references: [id])
+  store       Store?             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  carts       Cart[]
+  orders      Order[]
+  redemptions CouponRedemption[]
+
+  @@index([storeId])
+  @@map("coupons")
+}
+
+/** One row per (user, coupon) use — enforces perUserLimit and powers "coupons used" reporting. */
+model CouponRedemption {
+  id        String   @id @default(uuid())
+  couponId  String   @map("coupon_id")
+  userId    String   @map("user_id")
+  orderId   String?  @map("order_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([couponId])
+  @@index([userId])
+  @@map("coupon_redemptions")
+}
+
+/** Automatic, time-boxed offers (flash sales, BOGO, category/brand/product discounts, etc.) */
+model Promotion {
+  id            String         @id @default(uuid())
+  name          String
+  type          PromotionType
+  scope         PromotionScope @default(all)
+  categoryId    String?        @map("category_id")
+  brandId       String?        @map("brand_id")
+  productId     String?        @map("product_id")
+  value         Decimal?       @db.Decimal(10, 2) // percent or fixed amount, depending on type
+  buyQuantity   Int?           @map("buy_quantity") // BOGO: buy N
+  getQuantity   Int?           @map("get_quantity") // BOGO: get M free/discounted
+  enabled       Boolean        @default(true)
+  startsAt      DateTime       @map("starts_at")
+  endsAt        DateTime       @map("ends_at")
+  createdAt     DateTime       @default(now()) @map("created_at")
+
+  category Category? @relation(fields: [categoryId], references: [id])
+  brand    Brand?    @relation(fields: [brandId], references: [id])
+  product  Product?  @relation(fields: [productId], references: [id])
+
+  @@map("promotions")
+}
+
+model ShippingMethod {
+  id          String  @id @default(uuid())
+  name        String
+  description String
+  price       Decimal @db.Decimal(10, 2)
+  etaDays     String  @map("eta_days")
+
+  orders Order[]
+
+  @@map("shipping_methods")
+}
+
+model Order {
+  id                String        @id @default(uuid())
+  orderNumber       String        @unique @map("order_number")
+  userId            String        @map("user_id")
+  storeId           String        @map("store_id")
+  status            OrderStatus   @default(pending)
+  paymentStatus     PaymentStatus @default(pending) @map("payment_status")
+  subtotal          Decimal       @db.Decimal(10, 2)
+  discount          Decimal       @default(0) @db.Decimal(10, 2)
+  shippingCost      Decimal       @default(0) @map("shipping_cost") @db.Decimal(10, 2)
+  tax               Decimal       @default(0) @db.Decimal(10, 2)
+  platformFee       Decimal       @default(0) @map("platform_fee") @db.Decimal(10, 2)
+  codCharge         Decimal       @default(0) @map("cod_charge") @db.Decimal(10, 2)
+  total             Decimal       @db.Decimal(10, 2)
+  couponId          String?       @map("coupon_id")
+  shippingAddressId String?       @map("shipping_address_id")
+  shippingMethodId  String?       @map("shipping_method_id")
+  paymentMethod     PaymentMethod @default(card) @map("payment_method")
+  trackingNumber    String?       @map("tracking_number")
+  trackingCarrier   String?       @map("tracking_carrier")
+  trackingUrl       String?       @map("tracking_url")
+  returnReason      String?       @map("return_reason")
+  refundAmount      Decimal?      @map("refund_amount") @db.Decimal(10, 2)
+  placedAt          DateTime      @default(now()) @map("placed_at")
+  deliveredAt       DateTime?     @map("delivered_at")
+  cancelledAt       DateTime?     @map("cancelled_at")
+
+  user            User            @relation(fields: [userId], references: [id])
+  store           Store           @relation(fields: [storeId], references: [id])
+  coupon          Coupon?         @relation(fields: [couponId], references: [id])
+  shippingAddress Address?        @relation("ShippingAddress", fields: [shippingAddressId], references: [id])
+  shippingMethod  ShippingMethod? @relation(fields: [shippingMethodId], references: [id])
+  items           OrderItem[]
+
+  @@index([userId])
+  @@index([storeId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([storeId, status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id              String  @id @default(uuid())
+  orderId         String  @map("order_id")
+  productId       String  @map("product_id")
+  variantId       String? @map("variant_id")
+  nameSnapshot    String  @map("name_snapshot")
+  variantSnapshot Json?   @map("variant_snapshot")
+  priceSnapshot   Decimal @map("price_snapshot") @db.Decimal(10, 2)
+  quantity        Int
+
+  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product         @relation(fields: [productId], references: [id])
+  variant ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model ActivityLog {
+  id            String        @id @default(uuid())
+  actorId       String?       @map("actor_id")
+  action        String
+  scope         ActivityScope
+  entityType    String?       @map("entity_type")
+  entityId      String?       @map("entity_id")
+  previousValue Json?         @map("previous_value")
+  newValue      Json?         @map("new_value")
+  reason        String?
+  ipAddress     String?       @map("ip_address")
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([scope])
+  @@map("activity_logs")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  title     String
+  body      String
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notifications")
+}
+
+model WishlistItem {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  productId String   @map("product_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@map("wishlist_items")
+}
+
+/** Single-row platform configuration, fully editable from the admin dashboard. */
+model Settings {
+  id                  Int      @id @default(1)
+  storeName           String   @default("Veluntra") @map("store_name")
+  logoUrl             String?  @map("logo_url")
+  bannerUrl           String?  @map("banner_url")
+  themeColors         Json?    @map("theme_colors") // e.g. { primary, accent, background }
+  currency            String   @default("GBP")
+  currencySymbol      String   @default("£") @map("currency_symbol")
+
+  // ---- Business rules (every number an admin would otherwise have to hardcode) ----
+  taxPercent              Decimal @default(8.0) @map("tax_percent") @db.Decimal(5, 2)
+  platformCommissionPercent Decimal @default(0) @map("platform_commission_percent") @db.Decimal(5, 2)
+  defaultShippingCost     Decimal @default(0) @map("default_shipping_cost") @db.Decimal(10, 2)
+  freeShippingThreshold   Decimal? @map("free_shipping_threshold") @db.Decimal(10, 2)
+  codCharge               Decimal @default(0) @map("cod_charge") @db.Decimal(10, 2)
+  minOrderValue           Decimal @default(0) @map("min_order_value") @db.Decimal(10, 2)
+  returnWindowDays        Int     @default(30) @map("return_window_days")
+  exchangeWindowDays      Int     @default(30) @map("exchange_window_days")
+  cancellationWindowHours Int     @default(24) @map("cancellation_window_hours") // customer self-cancel is only allowed within this window of placing the order
+  orderStatusNotify      Json?   @map("order_status_notify") // per-status toggle, e.g. { pending: true, shipped: true, ... } — defaults to all-on
+  loyaltyPointsPerUnit    Decimal @default(1) @map("loyalty_points_per_unit") @db.Decimal(6, 2) // points earned per currency unit spent
+  referralBonusAmount     Decimal @default(0) @map("referral_bonus_amount") @db.Decimal(10, 2)
+  allowSellerCoupons      Boolean @default(true) @map("allow_seller_coupons")
+  featureFlags            Json?   @map("feature_flags") // { wishlist, reviews, coupons, flashSale, cod, loyaltyPoints, referrals, guestCheckout, sellerCoupons, emailNotifications, pushNotifications }
+
+  contactEmail        String?  @map("contact_email")
+  contactPhone        String?  @map("contact_phone")
+  contactAddress      String?  @map("contact_address")
+  socialLinks         Json?    @map("social_links") // e.g. { instagram, twitter, facebook }
+  returnPolicy        String?  @map("return_policy") @db.Text
+  privacyPolicy       String?  @map("privacy_policy") @db.Text
+  termsOfService      String?  @map("terms_of_service") @db.Text
+  smtpConfig          Json?    @map("smtp_config")
+  paymentGatewayConfig Json?   @map("payment_gateway_config")
+  cloudinaryConfig    Json?    @map("cloudinary_config")
+  notificationConfig  Json?    @map("notification_config")
+  // Global storefront animation preset: { preset, speed, duration, intensity, hover,
+  // idle, shadow, glow, borderRadius, cardStyle, delay, loop }. See frontend/src/lib/animations.
+  animationConfig     Json?    @map("animation_config")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+/**
+ * Per-role capability grid, admin-configurable (Settings > Roles & Permissions).
+ * `superadmin` always has every permission and is never stored/checked here —
+ * see requirePermission() in middleware/auth.js. Missing rows for a
+ * role/permission pair fall back to DEFAULT_PERMISSIONS in the permissions module.
+ */
+model RolePermission {
+  id         String   @id @default(uuid())
+  role       Role
+  permission String
+  allowed    Boolean  @default(true)
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([role, permission])
+  @@map("role_permissions")
+}
+
+enum InventoryChangeType {
+  order_deduct
+  cancel_restore
+  return_restore
+  bulk_import
+  bulk_adjustment
+  manual_adjustment
+  initial_stock
+}
+
+/**
+ * Full audit trail of every stock change, however it happened — manual edit,
+ * bulk tool, or automatic order/cancel/return processing. `actorId` is null
+ * for system-driven changes (e.g. an order placed by a customer decrementing
+ * stock); `orderId` links order-driven entries back to the order that caused them.
+ */
+model InventoryTransaction {
+  id             String              @id @default(uuid())
+  productId      String              @map("product_id")
+  variantId      String?             @map("variant_id")
+  type           InventoryChangeType
+  quantityBefore Int                 @map("quantity_before")
+  quantityAfter  Int                 @map("quantity_after")
+  delta          Int
+  reason         String?
+  actorId        String?             @map("actor_id")
+  orderId        String?             @map("order_id")
+  createdAt      DateTime            @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  actor   User?   @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([createdAt])
+  @@map("inventory_transactions")
+}

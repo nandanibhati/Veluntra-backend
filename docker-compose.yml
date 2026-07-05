@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: Veluntra
+      POSTGRES_PASSWORD: Veluntra
+      POSTGRES_DB: Veluntra
+    ports:
+      - "5432:5432"
+    volumes:
+      - Veluntra_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U Veluntra"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      DATABASE_URL: postgresql://Veluntra:Veluntra@db:5432/Veluntra
+      CORS_ORIGINS: http://localhost:5173
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change-me-access-secret}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-refresh-secret}
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 30d
+      UPLOAD_DIR: uploads
+      MAX_UPLOAD_SIZE_MB: 5
+    volumes:
+      - Veluntra_uploads:/app/uploads
+    command: sh -c "npx prisma migrate deploy && node prisma/seed.js && node src/server.js"
+
+volumes:
+  Veluntra_pgdata:
+  Veluntra_uploads:
