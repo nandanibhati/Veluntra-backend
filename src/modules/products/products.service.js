@@ -777,6 +777,7 @@ module.exports = {
   bulkUpdatePrice,
   bulkUpdateStock,
   bulkUpdateStatus,
+  bulkUpdateFeatureFlags,
   bulkUpdateCategory,
   bulkUpdateBrand,
   bulkUpdateTags,

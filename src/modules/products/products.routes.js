@@ -9,6 +9,7 @@ const {
   bulkPriceUpdateSchema,
   bulkStockUpdateSchema,
   bulkStatusUpdateSchema,
+  bulkFeatureFlagsUpdateSchema,
   bulkCategoryUpdateSchema,
   bulkBrandUpdateSchema,
   bulkTagsUpdateSchema,
@@ -136,6 +137,21 @@ router.post(
   requireRole("seller", "admin"),
   validate({ body: bulkStatusUpdateSchema }),
   controller.bulkUpdateStatus
+);
+/**
+ * @openapi
+ * /products/bulk/feature-flags:
+ *   post:
+ *     tags: [Products]
+ *     summary: Bulk-toggle homepage merchandising flags (Featured/Trending/Best Seller/New) and/or badge text
+ *     security: [{ bearerAuth: [] }]
+ */
+router.post(
+  "/bulk/feature-flags",
+  requireAuth,
+  requireRole("seller", "admin"),
+  validate({ body: bulkFeatureFlagsUpdateSchema }),
+  controller.bulkUpdateFeatureFlags
 );
 router.post(
   "/bulk/delete",

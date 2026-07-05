@@ -68,6 +68,36 @@ const updateSettingsSchema = z.object({
     .nullable(),
   notificationConfig: z.record(z.string(), z.boolean()).optional().nullable(),
 
+  animationConfig: z
+    .object({
+      preset: z.enum([
+        "apple",
+        "nike",
+        "samsung",
+        "luxury",
+        "minimal",
+        "gaming",
+        "glass",
+        "neon",
+        "modern",
+        "corporate",
+      ]),
+      speed: z.enum(["slow", "normal", "fast"]),
+      duration: z.coerce.number().min(0.1).max(3),
+      intensity: z.enum(["subtle", "normal", "strong"]),
+      hover: z.enum(["lift", "tilt", "zoom", "glow", "none"]),
+      idle: z.enum(["float", "breathe", "pulse", "none"]),
+      shadow: z.enum(["none", "soft", "medium", "strong"]),
+      glow: z.coerce.boolean(),
+      borderRadius: z.enum(["sharp", "soft", "rounded", "pill"]),
+      cardStyle: z.enum(["flat", "elevated", "glass", "bordered"]),
+      delay: z.coerce.number().min(0).max(1),
+      loop: z.coerce.boolean(),
+    })
+    .partial()
+    .optional()
+    .nullable(),
+
   // Audit metadata only — not a stored settings column.
   reason: z.string().trim().max(300).optional(),
 });

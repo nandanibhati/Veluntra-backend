@@ -101,6 +101,13 @@ const bulkUpdateStatus = asyncHandler(async (req, res) => {
   sendSuccess(res, { data: products });
 });
 
+const bulkUpdateFeatureFlags = asyncHandler(async (req, res) => {
+  const ctx = await resolveActorContext(req);
+  const { ids, ...flags } = req.body;
+  const products = await service.bulkUpdateFeatureFlags(ids, flags, { ...ctx, actorId: req.user.id, ipAddress: req.ip });
+  sendSuccess(res, { data: products });
+});
+
 const bulkDelete = asyncHandler(async (req, res) => {
   const ctx = await resolveActorContext(req);
   const { ids } = req.body;
@@ -165,6 +172,7 @@ module.exports = {
   bulkUpdatePrice,
   bulkUpdateStock,
   bulkUpdateStatus,
+  bulkUpdateFeatureFlags,
   bulkUpdateCategory,
   bulkUpdateBrand,
   bulkUpdateTags,

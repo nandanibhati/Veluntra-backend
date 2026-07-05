@@ -3,10 +3,15 @@ const ApiError = require("../../utils/ApiError");
 const { toPlain } = require("../../utils/serialize");
 const { logActivity } = require("../../utils/activityLog");
 
-/** Storefront-facing: enabled sections only, in display order. */
+/** Storefront-facing: enabled sections only, within their scheduled window (if set), in display order. */
 async function listPublic() {
+  const now = new Date();
   const sections = await prisma.homepageSection.findMany({
-    where: { enabled: true },
+    where: {
+      enabled: true,
+      OR: [{ startsAt: null }, { startsAt: { lte: now } }],
+      AND: [{ OR: [{ endsAt: null }, { endsAt: { gte: now } }] }],
+    },
     orderBy: { position: "asc" },
   });
   return sections.map(toPlain);

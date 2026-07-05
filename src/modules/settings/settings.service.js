@@ -5,6 +5,21 @@ const ApiError = require("../../utils/ApiError");
 
 const SECRET_KEYS = ["smtpConfig", "paymentGatewayConfig", "cloudinaryConfig"];
 
+const DEFAULT_ANIMATION_CONFIG = {
+  preset: "modern",
+  speed: "normal",
+  duration: 0.5,
+  intensity: "normal",
+  hover: "lift",
+  idle: "float",
+  shadow: "medium",
+  glow: true,
+  borderRadius: "rounded",
+  cardStyle: "elevated",
+  delay: 0.05,
+  loop: true,
+};
+
 const DEFAULT_FEATURE_FLAGS = {
   wishlist: true,
   reviews: true,
@@ -43,6 +58,11 @@ function resolveFeatureFlags(settings) {
   return { ...DEFAULT_FEATURE_FLAGS, ...(settings.featureFlags || {}) };
 }
 
+/** Merges stored overrides over the defaults so a never-configured animation field still reads as sane. */
+function resolveAnimationConfig(settings) {
+  return { ...DEFAULT_ANIMATION_CONFIG, ...(settings.animationConfig || {}) };
+}
+
 /** Convenience for other modules: `if (!(await isFeatureEnabled('cod'))) throw ...` */
 async function isFeatureEnabled(flag) {
   const settings = await getOrCreate();
@@ -77,13 +97,14 @@ async function getPublic() {
     privacyPolicy: plain.privacyPolicy,
     termsOfService: plain.termsOfService,
     featureFlags: resolveFeatureFlags(plain),
+    animationConfig: resolveAnimationConfig(plain),
   };
 }
 
 /** Admin view — secrets are masked; use getRawForInternalUse() for actually sending email/charging cards. */
 async function getForAdmin() {
   const settings = await getOrCreate();
-  return { ...maskSecrets(settings), featureFlags: resolveFeatureFlags(settings) };
+  return { ...maskSecrets(settings), featureFlags: resolveFeatureFlags(settings), animationConfig: resolveAnimationConfig(settings) };
 }
 
 /** Never expose this over an API response — for internal service use only (e.g. the mailer). */
@@ -113,6 +134,9 @@ async function update(data, actorId, { ipAddress, reason } = {}) {
   if (sanitized.featureFlags) {
     sanitized.featureFlags = { ...resolveFeatureFlags(before), ...sanitized.featureFlags };
   }
+  if (sanitized.animationConfig) {
+    sanitized.animationConfig = { ...resolveAnimationConfig(before), ...sanitized.animationConfig };
+  }
 
   const updated = await prisma.settings.update({ where: { id: 1 }, data: sanitized });
 
@@ -130,7 +154,7 @@ async function update(data, actorId, { ipAddress, reason } = {}) {
     },
   });
 
-  return { ...maskSecrets(updated), featureFlags: resolveFeatureFlags(updated) };
+  return { ...maskSecrets(updated), featureFlags: resolveFeatureFlags(updated), animationConfig: resolveAnimationConfig(updated) };
 }
 
 /** Audit trail of every settings change — for the Super Admin "Settings history" screen. */
@@ -183,5 +207,7 @@ module.exports = {
   restoreFromLog,
   isFeatureEnabled,
   resolveFeatureFlags,
+  resolveAnimationConfig,
   DEFAULT_FEATURE_FLAGS,
+  DEFAULT_ANIMATION_CONFIG,
 };

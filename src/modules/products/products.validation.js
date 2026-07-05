@@ -12,6 +12,19 @@ function slugify(input) {
 
 const specSchema = z.object({ label: z.string().min(1), value: z.string().min(1) });
 
+// Per-product override of the global animation preset. Null/omitted = inherit global.
+const animationOverrideSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    type: z.enum(["float", "breathe", "tilt", "glow", "shine", "pulse", "none"]).optional(),
+    speed: z.enum(["slow", "normal", "fast"]).optional(),
+    intensity: z.enum(["subtle", "normal", "strong"]).optional(),
+    heroHighlight: z.boolean().optional(),
+    homepageHighlight: z.boolean().optional(),
+  })
+  .optional()
+  .nullable();
+
 const variantSchema = z.object({
   sku: z.string().trim().min(1).max(64).optional(),
   barcode: z.string().trim().max(64).optional().nullable(),
@@ -41,7 +54,10 @@ const createProductSchema = z.object({
   status: z.enum(PRODUCT_STATUSES).default("draft"),
   isNew: z.coerce.boolean().default(false),
   isFeatured: z.coerce.boolean().default(false),
+  isTrending: z.coerce.boolean().default(false),
+  isBestSeller: z.coerce.boolean().default(false),
   badge: z.string().max(40).optional().nullable(),
+  animationOverride: animationOverrideSchema,
   tags: z.array(z.string().trim().min(1).max(40)).optional().default([]),
   highlights: z.array(z.string()).optional().default([]),
   specifications: z.array(specSchema).optional().default([]),
@@ -89,6 +105,10 @@ const listProductsQuerySchema = z.object({
   minRating: z.coerce.number().min(0).max(5).optional(),
   search: z.string().optional(),
   sort: z.enum(["featured", "price-asc", "price-desc", "rating", "newest", "best-selling"]).optional(),
+  featured: z.enum(["true", "false"]).optional(),
+  trending: z.enum(["true", "false"]).optional(),
+  bestSeller: z.enum(["true", "false"]).optional(),
+  isNew: z.enum(["true", "false"]).optional(),
 });
 
 const bulkIdsSchema = z.object({ ids: z.array(z.string().uuid()).min(1) });
@@ -123,6 +143,14 @@ const bulkTagsUpdateSchema = bulkIdsSchema.extend({
 
 const bulkDeleteSchema = bulkIdsSchema;
 
+const bulkFeatureFlagsUpdateSchema = bulkIdsSchema.extend({
+  isFeatured: z.boolean().optional(),
+  isTrending: z.boolean().optional(),
+  isBestSeller: z.boolean().optional(),
+  isNew: z.boolean().optional(),
+  badge: z.string().max(40).optional().nullable(),
+});
+
 const stockAdjustmentSchema = z.object({
   variantId: z.string().uuid().optional().nullable(),
   quantity: z.coerce.number().int(), // signed delta, e.g. -5 for damaged stock write-off
@@ -143,5 +171,6 @@ module.exports = {
   bulkBrandUpdateSchema,
   bulkTagsUpdateSchema,
   bulkDeleteSchema,
+  bulkFeatureFlagsUpdateSchema,
   stockAdjustmentSchema,
 };

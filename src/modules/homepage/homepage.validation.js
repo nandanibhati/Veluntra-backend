@@ -22,6 +22,8 @@ const createSectionSchema = z.object({
   config: z.record(z.string(), z.any()).optional().nullable(),
   position: z.coerce.number().int().min(0).optional(),
   enabled: z.coerce.boolean().default(true),
+  startsAt: z.coerce.date().optional().nullable(),
+  endsAt: z.coerce.date().optional().nullable(),
 });
 
 const updateSectionSchema = createSectionSchema.partial();
