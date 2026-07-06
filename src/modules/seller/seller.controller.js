@@ -4,7 +4,7 @@ const service = require("./seller.service");
 const ordersService = require("../orders/orders.service");
 
 const overview = asyncHandler(async (req, res) => {
-  const store = await service.getStoreForOwner(req.user.id);
+  const store = await service.getStoreForOwner(req.user.id, req.user.role);
   const period = ["day", "week", "month"].includes(req.query.period) ? req.query.period : "month";
   const [stats, revenueTrend, categorySales, topProducts] = await Promise.all([
     service.overview(store.id),
@@ -18,19 +18,19 @@ const overview = asyncHandler(async (req, res) => {
 });
 
 const listProducts = asyncHandler(async (req, res) => {
-  const store = await service.getStoreForOwner(req.user.id);
+  const store = await service.getStoreForOwner(req.user.id, req.user.role);
   const { items, page, limit, total } = await service.listProducts(store.id, req.query);
   sendSuccess(res, { data: items, meta: paginationMeta({ page, limit, total }) });
 });
 
 const listOrders = asyncHandler(async (req, res) => {
-  const store = await service.getStoreForOwner(req.user.id);
+  const store = await service.getStoreForOwner(req.user.id, req.user.role);
   const { items, page, limit, total } = await service.listOrders(store.id, req.query);
   sendSuccess(res, { data: items, meta: paginationMeta({ page, limit, total }) });
 });
 
 const updateOrderStatus = asyncHandler(async (req, res) => {
-  const store = await service.getStoreForOwner(req.user.id);
+  const store = await service.getStoreForOwner(req.user.id, req.user.role);
   const order = await ordersService.updateStatus(req.params.id, req.body, {
     storeId: store.id,
     isAdmin: false,
@@ -41,7 +41,7 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
 });
 
 const listCustomers = asyncHandler(async (req, res) => {
-  const store = await service.getStoreForOwner(req.user.id);
+  const store = await service.getStoreForOwner(req.user.id, req.user.role);
   const customers = await service.listCustomers(store.id);
   sendSuccess(res, { data: customers });
 });

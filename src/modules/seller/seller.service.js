@@ -3,10 +3,25 @@ const ApiError = require("../../utils/ApiError");
 const { toPlain } = require("../../utils/serialize");
 const { parsePagination } = require("../../utils/pagination");
 
-async function getStoreForOwner(ownerId) {
-  const store = await prisma.store.findUnique({ where: { ownerId } });
-  if (!store) throw ApiError.badRequest("You don't have a store yet.");
-  return store;
+/**
+ * Resolves which store the Seller Dashboard should manage for the current user.
+ * A real seller always owns exactly one store. Admin/Super Admin don't own a store
+ * themselves, but while the platform only has one store total, they're allowed to
+ * manage it directly from here too — this is a "there's currently only one seller"
+ * convenience, not a general multi-store admin picker.
+ */
+async function getStoreForOwner(ownerId, role) {
+  const owned = await prisma.store.findUnique({ where: { ownerId } });
+  if (owned) return owned;
+
+  if (role === "admin" || role === "superadmin") {
+    const stores = await prisma.store.findMany({ take: 2 });
+    if (stores.length === 1) return stores[0];
+    if (stores.length > 1) {
+      throw ApiError.badRequest("Multiple stores exist on the platform — manage them individually from Admin > Sellers instead.");
+    }
+  }
+  throw ApiError.badRequest("You don't have a store yet.");
 }
 
 async function overview(storeId) {
