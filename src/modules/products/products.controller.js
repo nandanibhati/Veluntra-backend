@@ -5,6 +5,7 @@ const { sendSuccess, paginationMeta } = require("../../utils/apiResponse");
 const ApiError = require("../../utils/ApiError");
 const prisma = require("../../config/db");
 const service = require("./products.service");
+const { resolveSoleStoreForAdmin } = require("../../utils/soleStore");
 
 const ADMIN_ROLES = new Set(["admin", "superadmin"]);
 
@@ -14,9 +15,10 @@ async function resolveStoreContext(req) {
     if (explicitStoreId) return { storeId: explicitStoreId, isAdmin: true };
 
     // No storeId given (e.g. admin/superadmin using the Seller Dashboard's product form,
-    // which never asks for one) — while the platform only has one store, fall back to it.
-    const stores = await prisma.store.findMany({ take: 2 });
-    if (stores.length === 1) return { storeId: stores[0].id, isAdmin: true };
+    // which never asks for one) — while the platform has zero or one store, resolve (or
+    // create) it automatically instead of demanding a choice that doesn't exist yet.
+    const store = await resolveSoleStoreForAdmin(req.user.id);
+    if (store) return { storeId: store.id, isAdmin: true };
     throw ApiError.badRequest("storeId is required for admin product operations.");
   }
   const store = await prisma.store.findUnique({ where: { ownerId: req.user.id } });
