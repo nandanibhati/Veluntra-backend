@@ -183,6 +183,10 @@ model User {
   isGuest      Boolean    @default(false) @map("is_guest")
   avatarUrl    String?    @map("avatar_url")
   rewardPoints Int        @default(0) @map("reward_points")
+  // VIP tier — "silver" | "gold" | "platinum" | null (not yet qualifying). Recomputed
+  // whenever an order is marked delivered, against Settings.vipTiers' thresholds.
+  vipTier       String?  @map("vip_tier")
+  lifetimeSpend Decimal  @default(0) @map("lifetime_spend") @db.Decimal(12, 2)
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
 
@@ -749,6 +753,9 @@ model Settings {
   animationConfig     Json?    @map("animation_config")
   // Promotional popup shown on page load: { enabled, title, body, imageUrl, ctaText, ctaLink }
   popupBanner         Json?    @map("popup_banner")
+  // VIP tiers by lifetime spend: { enabled, silverThreshold, goldThreshold, platinumThreshold }.
+  // Any tier (silver and up) gets free shipping — see orders.service.js's createFromCart.
+  vipTiers            Json?    @map("vip_tiers")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
   @@map("settings")

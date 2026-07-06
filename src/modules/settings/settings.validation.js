@@ -112,6 +112,17 @@ const updateSettingsSchema = z.object({
     .optional()
     .nullable(),
 
+  vipTiers: z
+    .object({
+      enabled: z.boolean(),
+      silverThreshold: z.coerce.number().min(0),
+      goldThreshold: z.coerce.number().min(0),
+      platinumThreshold: z.coerce.number().min(0),
+    })
+    .partial()
+    .optional()
+    .nullable(),
+
   // Audit metadata only — not a stored settings column.
   reason: z.string().trim().max(300).optional(),
 });

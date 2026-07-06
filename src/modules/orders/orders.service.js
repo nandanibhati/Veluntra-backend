@@ -45,6 +45,9 @@ async function createFromCart(userId, { shippingAddressId, shippingMethodId, pay
   }
   const codCharge = paymentMethod === "cod" ? Number(settings.codCharge || 0) : 0;
   const isFirstOrder = (await prisma.order.count({ where: { userId } })) === 0;
+  const vipTiers = settingsService.resolveVipTiers(settings);
+  const orderingUser = await prisma.user.findUnique({ where: { id: userId }, select: { vipTier: true } });
+  const hasVipFreeShipping = vipTiers.enabled && Boolean(orderingUser?.vipTier);
 
   const productIds = cart.items.map((i) => i.productId);
   const variantIds = cart.items.map((i) => i.variantId).filter(Boolean);
@@ -94,7 +97,7 @@ async function createFromCart(userId, { shippingAddressId, shippingMethodId, pay
   if (subtotal <= 0) throw ApiError.badRequest("Your cart is empty.");
 
   const isFreeShippingCoupon = cart.coupon?.type === "free_shipping";
-  const totalShippingCost = isFreeShippingCoupon ? 0 : Number(shippingMethod.price);
+  const totalShippingCost = isFreeShippingCoupon || hasVipFreeShipping ? 0 : Number(shippingMethod.price);
 
   // Group priced items by the store that owns each product.
   const groups = new Map(); // storeId -> { items: [...], subtotal, promotionDiscount }
@@ -333,6 +336,19 @@ async function updateStatus(id, data, { storeId, isAdmin, actorId, ipAddress }) 
         if (points > 0) {
           await tx.user.update({ where: { id: order.userId }, data: { rewardPoints: { increment: points } } });
         }
+      }
+
+      // VIP tier: lifetime spend accrues on delivery (same trust point as reward points —
+      // an order only counts once it's actually been fulfilled), then re-evaluate the
+      // customer's tier against the current thresholds. Silver/Gold/Platinum, highest wins.
+      const vipTiers = settingsService.resolveVipTiers(settings);
+      const buyer = await tx.user.update({
+        where: { id: order.userId },
+        data: { lifetimeSpend: { increment: order.total } },
+      });
+      const nextTier = settingsService.resolveTierForSpend(vipTiers, buyer.lifetimeSpend);
+      if (nextTier !== buyer.vipTier) {
+        await tx.user.update({ where: { id: order.userId }, data: { vipTier: nextTier } });
       }
     }
 

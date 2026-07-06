@@ -44,6 +44,24 @@ const DEFAULT_POPUP_BANNER = {
   ctaLink: "",
 };
 
+const DEFAULT_VIP_TIERS = {
+  enabled: false,
+  silverThreshold: 100,
+  goldThreshold: 500,
+  platinumThreshold: 1000,
+};
+
+/** Given a customer's lifetime spend, returns which tier (if any) they qualify for —
+ * highest tier wins. Returns null when tiers are disabled or spend doesn't reach silver. */
+function resolveTierForSpend(vipTiers, lifetimeSpend) {
+  if (!vipTiers.enabled) return null;
+  const spend = Number(lifetimeSpend);
+  if (spend >= Number(vipTiers.platinumThreshold)) return "platinum";
+  if (spend >= Number(vipTiers.goldThreshold)) return "gold";
+  if (spend >= Number(vipTiers.silverThreshold)) return "silver";
+  return null;
+}
+
 /** Ensures the single settings row exists (id=1), creating it with defaults on first read. */
 async function getOrCreate() {
   let settings = await prisma.settings.findUnique({ where: { id: 1 } });
@@ -76,6 +94,11 @@ function resolveAnimationConfig(settings) {
 /** Merges stored overrides over the defaults so a never-configured popup field still reads as sane. */
 function resolvePopupBanner(settings) {
   return { ...DEFAULT_POPUP_BANNER, ...(settings.popupBanner || {}) };
+}
+
+/** Merges stored overrides over the defaults so never-configured VIP thresholds still read as sane. */
+function resolveVipTiers(settings) {
+  return { ...DEFAULT_VIP_TIERS, ...(settings.vipTiers || {}) };
 }
 
 /** Convenience for other modules: `if (!(await isFeatureEnabled('cod'))) throw ...` */
@@ -114,6 +137,7 @@ async function getPublic() {
     featureFlags: resolveFeatureFlags(plain),
     animationConfig: resolveAnimationConfig(plain),
     popupBanner: resolvePopupBanner(plain),
+    vipTiers: resolveVipTiers(plain),
   };
 }
 
@@ -125,6 +149,7 @@ async function getForAdmin() {
     featureFlags: resolveFeatureFlags(settings),
     animationConfig: resolveAnimationConfig(settings),
     popupBanner: resolvePopupBanner(settings),
+    vipTiers: resolveVipTiers(settings),
   };
 }
 
@@ -161,6 +186,9 @@ async function update(data, actorId, { ipAddress, reason } = {}) {
   if (sanitized.popupBanner) {
     sanitized.popupBanner = { ...resolvePopupBanner(before), ...sanitized.popupBanner };
   }
+  if (sanitized.vipTiers) {
+    sanitized.vipTiers = { ...resolveVipTiers(before), ...sanitized.vipTiers };
+  }
 
   const updated = await prisma.settings.update({ where: { id: 1 }, data: sanitized });
 
@@ -183,6 +211,7 @@ async function update(data, actorId, { ipAddress, reason } = {}) {
     featureFlags: resolveFeatureFlags(updated),
     animationConfig: resolveAnimationConfig(updated),
     popupBanner: resolvePopupBanner(updated),
+    vipTiers: resolveVipTiers(updated),
   };
 }
 
@@ -237,6 +266,9 @@ module.exports = {
   isFeatureEnabled,
   resolveFeatureFlags,
   resolveAnimationConfig,
+  resolveVipTiers,
+  resolveTierForSpend,
   DEFAULT_FEATURE_FLAGS,
   DEFAULT_ANIMATION_CONFIG,
+  DEFAULT_VIP_TIERS,
 };
