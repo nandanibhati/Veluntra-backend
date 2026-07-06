@@ -109,7 +109,12 @@ async function seedSampleCatalog(prisma, { storeId }) {
     const cat = await prisma.category.upsert({
       where: { slug: slugify(name) },
       update: {},
-      create: { name, slug: slugify(name), featured: FEATURED_CATEGORIES.has(name) },
+      create: {
+        name,
+        slug: slugify(name),
+        featured: FEATURED_CATEGORIES.has(name),
+        imageUrl: `https://picsum.photos/seed/category-${slugify(name)}/300/300`,
+      },
     });
     categoryByName[name] = cat;
   }
