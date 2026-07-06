@@ -17,6 +17,7 @@
  */
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
+const { seedSampleCatalog } = require("./seedCatalog");
 
 const prisma = new PrismaClient();
 
@@ -77,6 +78,35 @@ async function main() {
   } else {
     console.log("  SUPERADMIN_EMAIL / SUPERADMIN_PASSWORD not set — skipping admin account creation.");
     console.log("  Set both env vars and re-run this script to provision your first admin login.");
+  }
+
+  // ---- Starter catalog (placeholder content so the storefront isn't empty) ----
+  // Runs automatically, exactly once: only when there are zero products in the database.
+  // Every category, brand, and product is fully editable/replaceable from the Admin/Seller
+  // dashboard afterwards — this is a starting catalog, not real inventory.
+  const productCount = await prisma.product.count();
+  if (productCount === 0) {
+    const owner = await prisma.user.findFirst({
+      where: { role: { in: ["superadmin", "admin"] } },
+      orderBy: { createdAt: "asc" },
+    });
+    if (!owner) {
+      console.log("  Skipping starter catalog — no admin/superadmin account exists yet to own the store.");
+    } else {
+      let store = await prisma.store.findUnique({ where: { ownerId: owner.id } });
+      if (!store) {
+        const anyStore = await prisma.store.findFirst();
+        store =
+          anyStore ||
+          (await prisma.store.create({
+            data: { name: process.env.STORE_NAME || "My Store", ownerId: owner.id, status: "approved" },
+          }));
+      }
+      const result = await seedSampleCatalog(prisma, { storeId: store.id });
+      console.log(
+        `  Starter catalog: ${result.categoriesCreated} categories, ${result.brandsCreated} brands, ${result.productsCreated} products created.`
+      );
+    }
   }
 
   console.log("Production bootstrap complete.");
