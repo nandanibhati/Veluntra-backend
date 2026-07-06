@@ -48,7 +48,16 @@ async function main() {
   if (SUPERADMIN_EMAIL && SUPERADMIN_PASSWORD) {
     const existing = await prisma.user.findUnique({ where: { email: SUPERADMIN_EMAIL.toLowerCase() } });
     if (existing) {
-      console.log(`  Super Admin ${SUPERADMIN_EMAIL} already exists — leaving it untouched.`);
+      if (existing.role === "superadmin") {
+        console.log(`  Super Admin ${SUPERADMIN_EMAIL} already exists — leaving it untouched.`);
+      } else {
+        // A real account was found under this email (e.g. someone signed up as a customer
+        // before the bootstrap ever ran) — honor SUPERADMIN_EMAIL's intent and upgrade its
+        // role in place. Never touches the existing password, so it stays whatever the
+        // account holder already set.
+        await prisma.user.update({ where: { id: existing.id }, data: { role: "superadmin" } });
+        console.log(`  Upgraded existing account ${SUPERADMIN_EMAIL} (was "${existing.role}") to Super Admin.`);
+      }
     } else {
       if (SUPERADMIN_PASSWORD.length < 12) {
         throw new Error("SUPERADMIN_PASSWORD must be at least 12 characters for a production bootstrap.");
