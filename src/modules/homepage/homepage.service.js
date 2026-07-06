@@ -4,7 +4,10 @@ const { toPlain } = require("../../utils/serialize");
 const { logActivity } = require("../../utils/activityLog");
 const { parsePagination } = require("../../utils/pagination");
 
-/** Storefront-facing: enabled sections only, within their scheduled window (if set), in display order. */
+/** Storefront-facing: enabled sections only, within their scheduled window (if set), in display
+ * order. `draft` is an admin-only concept (a pending, unpublished edit) — strip it here so a
+ * not-yet-published change is never exposed even in the raw JSON of a public, unauthenticated
+ * endpoint, regardless of whether the frontend happens to render it. */
 async function listPublic() {
   const now = new Date();
   const sections = await prisma.homepageSection.findMany({
@@ -15,7 +18,7 @@ async function listPublic() {
     },
     orderBy: { position: "asc" },
   });
-  return sections.map(toPlain);
+  return sections.map((s) => toPlain({ ...s, draft: undefined }));
 }
 
 /** Admin CMS editor: every section, including disabled ones. */
@@ -72,6 +75,75 @@ async function remove(id, { actorId, ipAddress }) {
     previousValue: toPlain(existing),
     ipAddress,
   });
+}
+
+/**
+ * Saves an edit as a pending draft instead of touching the live columns — visitors keep
+ * seeing today's published version until the draft is explicitly published. Purely additive:
+ * `update()` above is untouched and still writes live immediately (used by the enabled-toggle
+ * and by "Publish" on a brand-new section, where there's nothing published yet to protect).
+ */
+async function saveDraft(id, data, { actorId, ipAddress }) {
+  const existing = await prisma.homepageSection.findUnique({ where: { id } });
+  if (!existing) throw ApiError.notFound("Homepage section not found.");
+  const nextDraft = { ...(existing.draft || {}), ...data };
+  const section = await prisma.homepageSection.update({ where: { id }, data: { draft: nextDraft } });
+  await logActivity({
+    actorId,
+    action: `Saved a draft for homepage section "${existing.title || existing.type}"`,
+    scope: "homepage",
+    entityType: "HomepageSection",
+    entityId: id,
+    ipAddress,
+  });
+  return toPlain(section);
+}
+
+/** Copies the pending draft onto the live columns (what listPublic() reads) and clears it. */
+async function publishDraft(id, { actorId, ipAddress }) {
+  const existing = await prisma.homepageSection.findUnique({ where: { id } });
+  if (!existing) throw ApiError.notFound("Homepage section not found.");
+  if (!existing.draft) throw ApiError.badRequest("This section has no pending draft to publish.");
+
+  const { title, config, enabled, startsAt, endsAt } = existing.draft;
+  const section = await prisma.homepageSection.update({
+    where: { id },
+    data: {
+      ...(title !== undefined && { title }),
+      ...(config !== undefined && { config }),
+      ...(enabled !== undefined && { enabled }),
+      ...(startsAt !== undefined && { startsAt }),
+      ...(endsAt !== undefined && { endsAt }),
+      draft: null,
+    },
+  });
+  await logActivity({
+    actorId,
+    action: `Published draft changes to homepage section "${existing.title || existing.type}"`,
+    scope: "homepage",
+    entityType: "HomepageSection",
+    entityId: id,
+    previousValue: toPlain(existing),
+    newValue: toPlain(section),
+    ipAddress,
+  });
+  return toPlain(section);
+}
+
+/** Throws away the pending draft — the live section is left exactly as it was. */
+async function discardDraft(id, { actorId, ipAddress }) {
+  const existing = await prisma.homepageSection.findUnique({ where: { id } });
+  if (!existing) throw ApiError.notFound("Homepage section not found.");
+  const section = await prisma.homepageSection.update({ where: { id }, data: { draft: null } });
+  await logActivity({
+    actorId,
+    action: `Discarded draft changes to homepage section "${existing.title || existing.type}"`,
+    scope: "homepage",
+    entityType: "HomepageSection",
+    entityId: id,
+    ipAddress,
+  });
+  return toPlain(section);
 }
 
 async function reorder(items, { actorId, ipAddress }) {
@@ -148,4 +220,4 @@ async function restoreFromLog(logId, actorId, { ipAddress, reason } = {}) {
   return toPlain(section);
 }
 
-module.exports = { listPublic, listAll, create, update, remove, reorder, getHistory, restoreFromLog };
+module.exports = { listPublic, listAll, create, update, remove, reorder, getHistory, restoreFromLog, saveDraft, publishDraft, discardDraft };

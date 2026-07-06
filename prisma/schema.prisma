@@ -147,6 +147,10 @@ model HomepageSection {
   enabled   Boolean             @default(true)
   startsAt  DateTime?           @map("starts_at")
   endsAt    DateTime?           @map("ends_at")
+  // Pending unpublished edits: { title, config, enabled, startsAt, endsAt } snapshot.
+  // Null = no pending draft (what visitors see is exactly the live columns above).
+  // The public listing never reads this column — a draft can never leak to the storefront.
+  draft     Json?
   createdAt DateTime            @default(now()) @map("created_at")
   updatedAt DateTime            @updatedAt @map("updated_at")
 

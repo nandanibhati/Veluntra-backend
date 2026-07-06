@@ -45,4 +45,19 @@ const restore = asyncHandler(async (req, res) => {
   sendSuccess(res, { data: section });
 });
 
-module.exports = { listPublic, listAll, create, update, remove, reorder, getHistory, restore };
+const saveDraft = asyncHandler(async (req, res) => {
+  const section = await service.saveDraft(req.params.id, req.body, { actorId: req.user.id, ipAddress: req.ip });
+  sendSuccess(res, { data: section });
+});
+
+const publishDraft = asyncHandler(async (req, res) => {
+  const section = await service.publishDraft(req.params.id, { actorId: req.user.id, ipAddress: req.ip });
+  sendSuccess(res, { data: section });
+});
+
+const discardDraft = asyncHandler(async (req, res) => {
+  const section = await service.discardDraft(req.params.id, { actorId: req.user.id, ipAddress: req.ip });
+  sendSuccess(res, { data: section });
+});
+
+module.exports = { listPublic, listAll, create, update, remove, reorder, getHistory, restore, saveDraft, publishDraft, discardDraft };

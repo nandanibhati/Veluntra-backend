@@ -16,17 +16,25 @@ const SECTION_TYPES = [
   "custom",
 ];
 
-const createSectionSchema = z.object({
+// Base fields with no default on `enabled` — used as-is for updates/drafts, so a partial
+// edit that never mentions `enabled` doesn't silently reset it (Zod's `.partial()` does NOT
+// strip a field's `.default()`, so building updateSectionSchema from a schema that already
+// defaults `enabled` to true would silently re-enable a disabled section on every edit).
+const sectionFieldsSchema = z.object({
   type: z.enum(SECTION_TYPES),
   title: z.string().trim().max(160).optional().nullable(),
   config: z.record(z.string(), z.any()).optional().nullable(),
   position: z.coerce.number().int().min(0).optional(),
-  enabled: z.coerce.boolean().default(true),
+  enabled: z.coerce.boolean().optional(),
   startsAt: z.coerce.date().optional().nullable(),
   endsAt: z.coerce.date().optional().nullable(),
 });
 
-const updateSectionSchema = createSectionSchema.partial();
+const createSectionSchema = sectionFieldsSchema.extend({
+  enabled: z.coerce.boolean().default(true),
+});
+
+const updateSectionSchema = sectionFieldsSchema.partial();
 
 const reorderSectionsSchema = z.object({
   items: z.array(z.object({ id: z.string().uuid(), position: z.coerce.number().int().min(0) })).min(1),

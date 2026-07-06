@@ -90,6 +90,55 @@ router.delete(
 
 /**
  * @openapi
+ * /homepage/admin/sections/{id}/draft:
+ *   patch:
+ *     tags: [Homepage]
+ *     summary: Save an edit as a pending draft (visitors keep seeing the live version)
+ *     security: [{ bearerAuth: [] }]
+ */
+router.patch(
+  "/admin/sections/:id/draft",
+  requireAuth,
+  requireRole("admin"),
+  requirePermission("homepage.manage"),
+  validate({ body: updateSectionSchema }),
+  controller.saveDraft
+);
+
+/**
+ * @openapi
+ * /homepage/admin/sections/{id}/publish:
+ *   post:
+ *     tags: [Homepage]
+ *     summary: Publish a section's pending draft to the live storefront
+ *     security: [{ bearerAuth: [] }]
+ */
+router.post(
+  "/admin/sections/:id/publish",
+  requireAuth,
+  requireRole("admin"),
+  requirePermission("homepage.manage"),
+  controller.publishDraft
+);
+
+/**
+ * @openapi
+ * /homepage/admin/sections/{id}/discard:
+ *   post:
+ *     tags: [Homepage]
+ *     summary: Discard a section's pending draft, leaving the live version untouched
+ *     security: [{ bearerAuth: [] }]
+ */
+router.post(
+  "/admin/sections/:id/discard",
+  requireAuth,
+  requireRole("admin"),
+  requirePermission("homepage.manage"),
+  controller.discardDraft
+);
+
+/**
+ * @openapi
  * /homepage/admin/history:
  *   get:
  *     tags: [Homepage]
