@@ -1,0 +1,40 @@
+databases:
+  - name: veluntra-db
+    plan: free
+    databaseName: veluntra
+    user: veluntra
+
+services:
+  - type: web
+    name: veluntra-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: veluntra-db
+          property: connectionString
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 30d
+      # Set this to your real frontend origin(s), comma-separated — the app refuses
+      # to boot in production if this is left unset (see src/config/env.js).
+      - key: CORS_ORIGINS
+        sync: false
+      - key: UPLOAD_DIR
+        value: uploads
+      - key: MAX_UPLOAD_SIZE_MB
+        value: 5
