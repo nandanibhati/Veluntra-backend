@@ -43,6 +43,7 @@ const updateSettingsSchema = z.object({
       sellerCoupons: z.boolean(),
       emailNotifications: z.boolean(),
       pushNotifications: z.boolean(),
+      cookieConsent: z.boolean(),
     })
     .partial()
     .optional()
@@ -93,6 +94,19 @@ const updateSettingsSchema = z.object({
       cardStyle: z.enum(["flat", "elevated", "glass", "bordered"]),
       delay: z.coerce.number().min(0).max(1),
       loop: z.coerce.boolean(),
+    })
+    .partial()
+    .optional()
+    .nullable(),
+
+  popupBanner: z
+    .object({
+      enabled: z.boolean(),
+      title: z.string().trim().max(160),
+      body: z.string().trim().max(1000),
+      imageUrl: z.string().url().nullable(),
+      ctaText: z.string().trim().max(60),
+      ctaLink: z.string().trim().max(300),
     })
     .partial()
     .optional()

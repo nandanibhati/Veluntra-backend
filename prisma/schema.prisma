@@ -747,6 +747,8 @@ model Settings {
   // Global storefront animation preset: { preset, speed, duration, intensity, hover,
   // idle, shadow, glow, borderRadius, cardStyle, delay, loop }. See frontend/src/lib/animations.
   animationConfig     Json?    @map("animation_config")
+  // Promotional popup shown on page load: { enabled, title, body, imageUrl, ctaText, ctaLink }
+  popupBanner         Json?    @map("popup_banner")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
   @@map("settings")

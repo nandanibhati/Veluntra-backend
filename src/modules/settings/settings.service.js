@@ -32,6 +32,16 @@ const DEFAULT_FEATURE_FLAGS = {
   sellerCoupons: true,
   emailNotifications: true,
   pushNotifications: true,
+  cookieConsent: true,
+};
+
+const DEFAULT_POPUP_BANNER = {
+  enabled: false,
+  title: "",
+  body: "",
+  imageUrl: null,
+  ctaText: "",
+  ctaLink: "",
 };
 
 /** Ensures the single settings row exists (id=1), creating it with defaults on first read. */
@@ -61,6 +71,11 @@ function resolveFeatureFlags(settings) {
 /** Merges stored overrides over the defaults so a never-configured animation field still reads as sane. */
 function resolveAnimationConfig(settings) {
   return { ...DEFAULT_ANIMATION_CONFIG, ...(settings.animationConfig || {}) };
+}
+
+/** Merges stored overrides over the defaults so a never-configured popup field still reads as sane. */
+function resolvePopupBanner(settings) {
+  return { ...DEFAULT_POPUP_BANNER, ...(settings.popupBanner || {}) };
 }
 
 /** Convenience for other modules: `if (!(await isFeatureEnabled('cod'))) throw ...` */
@@ -98,13 +113,19 @@ async function getPublic() {
     termsOfService: plain.termsOfService,
     featureFlags: resolveFeatureFlags(plain),
     animationConfig: resolveAnimationConfig(plain),
+    popupBanner: resolvePopupBanner(plain),
   };
 }
 
 /** Admin view — secrets are masked; use getRawForInternalUse() for actually sending email/charging cards. */
 async function getForAdmin() {
   const settings = await getOrCreate();
-  return { ...maskSecrets(settings), featureFlags: resolveFeatureFlags(settings), animationConfig: resolveAnimationConfig(settings) };
+  return {
+    ...maskSecrets(settings),
+    featureFlags: resolveFeatureFlags(settings),
+    animationConfig: resolveAnimationConfig(settings),
+    popupBanner: resolvePopupBanner(settings),
+  };
 }
 
 /** Never expose this over an API response — for internal service use only (e.g. the mailer). */
@@ -137,6 +158,9 @@ async function update(data, actorId, { ipAddress, reason } = {}) {
   if (sanitized.animationConfig) {
     sanitized.animationConfig = { ...resolveAnimationConfig(before), ...sanitized.animationConfig };
   }
+  if (sanitized.popupBanner) {
+    sanitized.popupBanner = { ...resolvePopupBanner(before), ...sanitized.popupBanner };
+  }
 
   const updated = await prisma.settings.update({ where: { id: 1 }, data: sanitized });
 
@@ -154,7 +178,12 @@ async function update(data, actorId, { ipAddress, reason } = {}) {
     },
   });
 
-  return { ...maskSecrets(updated), featureFlags: resolveFeatureFlags(updated), animationConfig: resolveAnimationConfig(updated) };
+  return {
+    ...maskSecrets(updated),
+    featureFlags: resolveFeatureFlags(updated),
+    animationConfig: resolveAnimationConfig(updated),
+    popupBanner: resolvePopupBanner(updated),
+  };
 }
 
 /** Audit trail of every settings change — for the Super Admin "Settings history" screen. */
