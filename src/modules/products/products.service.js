@@ -53,6 +53,8 @@ async function list(query) {
 
   if (query.category) where.category = { slug: query.category };
   if (query.brand) where.brand = { slug: query.brand };
+  if (query.storeId) where.storeId = query.storeId;
+  if (query.ids) where.id = { in: query.ids.split(",").filter(Boolean) };
   if (query.tag) where.tags = { has: query.tag };
   if (query.minRating) where.ratingAvg = { gte: Number(query.minRating) };
   // Homepage merchandising flags — admin/seller-controlled, set via bulkUpdateFeatureFlags

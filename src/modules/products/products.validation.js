@@ -99,6 +99,8 @@ const listProductsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(60).optional(),
   category: z.string().optional(),
   brand: z.string().optional(),
+  storeId: z.string().uuid().optional(),
+  ids: z.string().optional(), // comma-separated UUIDs — "manual selection" product sources (homepage sections, etc.)
   tag: z.string().optional(),
   minPrice: z.coerce.number().min(0).optional(),
   maxPrice: z.coerce.number().min(0).optional(),
