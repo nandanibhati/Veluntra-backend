@@ -1,7 +1,14 @@
 const { Router } = require("express");
 const validate = require("../../middleware/validate");
 const { requireAuth, requireRole } = require("../../middleware/auth");
-const { setUserStatusSchema, setStoreStatusSchema, setStoreCommissionSchema, listQuerySchema } = require("./admin.validation");
+const {
+  setUserStatusSchema,
+  setUserRoleSchema,
+  createAdminSchema,
+  setStoreStatusSchema,
+  setStoreCommissionSchema,
+  listQuerySchema,
+} = require("./admin.validation");
 const { updateOrderStatusSchema, assignSellerSchema } = require("../orders/orders.validation");
 const reviewsModerationRouter = require("../reviews/reviews.moderation.routes");
 const controller = require("./admin.controller");
@@ -39,6 +46,22 @@ router.get("/users/:id", controller.getCustomerDetail);
  */
 router.patch("/users/:id/status", validate({ body: setUserStatusSchema }), controller.setUserStatus);
 router.delete("/users/:id", controller.deleteUser);
+
+/**
+ * @openapi
+ * /admin/users/admins:
+ *   post:
+ *     tags: [Admin]
+ *     summary: Create a new Admin staff account directly (Super Admin only — there's no self-signup path for this role)
+ *     security: [{ bearerAuth: [] }]
+ * /admin/users/{id}/role:
+ *   patch:
+ *     tags: [Admin]
+ *     summary: Promote a customer to Admin, or demote an Admin back to customer (Super Admin only)
+ *     security: [{ bearerAuth: [] }]
+ */
+router.post("/users/admins", requireRole("superadmin"), validate({ body: createAdminSchema }), controller.createAdmin);
+router.patch("/users/:id/role", requireRole("superadmin"), validate({ body: setUserRoleSchema }), controller.setUserRole);
 
 /**
  * @openapi

@@ -39,9 +39,12 @@ services:
       MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-5}
     volumes:
       - veluntra_prod_uploads:/app/uploads
-    # Deliberately does NOT run any seed script — the database is bootstrapped once,
-    # manually, via: docker compose -f docker-compose.prod.yml exec api node prisma/seed.production.js
-    command: sh -c "npx prisma migrate deploy && node src/server.js"
+    # seed.production.js runs on every boot alongside migrations — both are idempotent
+    # (it only ever creates the Settings row/shipping method once, and only creates the
+    # Super Admin if SUPERADMIN_EMAIL/PASSWORD are set and no account with that email
+    # exists yet), so this is safe to leave in permanently rather than requiring a
+    # manual `docker compose exec` — not every deploy platform offers shell access.
+    command: sh -c "npx prisma migrate deploy && node prisma/seed.production.js && node src/server.js"
 
 volumes:
   veluntra_prod_pgdata:

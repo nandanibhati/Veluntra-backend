@@ -23,6 +23,16 @@ const setUserStatus = asyncHandler(async (req, res) => {
   sendSuccess(res, { data: user });
 });
 
+const setUserRole = asyncHandler(async (req, res) => {
+  const user = await service.setUserRole(req.user.id, req.params.id, req.body.role, req.ip);
+  sendSuccess(res, { data: user });
+});
+
+const createAdmin = asyncHandler(async (req, res) => {
+  const user = await service.createAdmin(req.user.id, req.body, req.ip);
+  sendSuccess(res, { data: user, statusCode: 201 });
+});
+
 const deleteUser = asyncHandler(async (req, res) => {
   await service.deleteUser(req.user.id, req.params.id, req.ip);
   sendSuccess(res, { data: { deleted: true } });
@@ -111,6 +121,8 @@ module.exports = {
   listUsers,
   getCustomerDetail,
   setUserStatus,
+  setUserRole,
+  createAdmin,
   deleteUser,
   resetUserPassword,
   listStores,

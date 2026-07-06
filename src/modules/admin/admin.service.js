@@ -3,6 +3,7 @@ const ApiError = require("../../utils/ApiError");
 const { toPlain } = require("../../utils/serialize");
 const { parsePagination } = require("../../utils/pagination");
 const { logActivity } = require("../../utils/activityLog");
+const { hashPassword } = require("../../utils/password");
 
 // ---------- Users ----------
 
@@ -39,6 +40,49 @@ async function setUserStatus(actorId, userId, status, ipAddress) {
     ipAddress,
   });
   return toPlain({ ...updated, passwordHash: undefined });
+}
+
+/** Super-Admin-only: promotes an existing customer to admin staff, or demotes an admin back to customer. */
+async function setUserRole(actorId, userId, role, ipAddress) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw ApiError.notFound("User not found.");
+  if (user.role === "superadmin") throw ApiError.forbidden("The Super Admin's role can't be changed here.");
+  if (user.role === "seller") throw ApiError.badRequest("Sellers can't be converted to admin from here — remove their store first if that's really what you want.");
+
+  const updated = await prisma.user.update({ where: { id: userId }, data: { role } });
+  await logActivity({
+    actorId,
+    action: `Changed ${user.name}'s role from ${user.role} to ${role}`,
+    scope: "users",
+    entityType: "User",
+    entityId: userId,
+    previousValue: { role: user.role },
+    newValue: { role },
+    ipAddress,
+  });
+  return toPlain({ ...updated, passwordHash: undefined });
+}
+
+/** Super-Admin-only: creates a brand-new Admin staff account directly (no self-signup path exists for this role). */
+async function createAdmin(actorId, { name, email, password }, ipAddress) {
+  const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+  if (existing) throw ApiError.conflict("An account with this email already exists.");
+
+  const passwordHash = await hashPassword(password);
+  const user = await prisma.user.create({
+    data: { name, email: email.toLowerCase(), passwordHash, role: "admin", emailVerifiedAt: new Date() },
+  });
+
+  await logActivity({
+    actorId,
+    action: `Created admin account for ${user.name} (${user.email})`,
+    scope: "users",
+    entityType: "User",
+    entityId: user.id,
+    newValue: { name: user.name, email: user.email, role: "admin" },
+    ipAddress,
+  });
+  return toPlain({ ...user, passwordHash: undefined });
 }
 
 // ---------- Sellers (Store approval, suspension, commission) ----------
@@ -396,6 +440,8 @@ module.exports = {
   setStoreCommission,
   getCustomerDetail,
   setUserStatus,
+  setUserRole,
+  createAdmin,
   deleteUser,
   listOrders,
   listProducts,
