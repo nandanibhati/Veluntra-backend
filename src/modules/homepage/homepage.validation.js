@@ -32,4 +32,8 @@ const reorderSectionsSchema = z.object({
   items: z.array(z.object({ id: z.string().uuid(), position: z.coerce.number().int().min(0) })).min(1),
 });
 
-module.exports = { SECTION_TYPES, createSectionSchema, updateSectionSchema, reorderSectionsSchema };
+const restoreSectionSchema = z.object({
+  reason: z.string().trim().max(300).optional(),
+});
+
+module.exports = { SECTION_TYPES, createSectionSchema, updateSectionSchema, reorderSectionsSchema, restoreSectionSchema };

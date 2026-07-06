@@ -32,4 +32,17 @@ const reorder = asyncHandler(async (req, res) => {
   sendSuccess(res, { data: sections });
 });
 
-module.exports = { listPublic, listAll, create, update, remove, reorder };
+const getHistory = asyncHandler(async (req, res) => {
+  const history = await service.getHistory(req.query);
+  sendSuccess(res, { data: history });
+});
+
+const restore = asyncHandler(async (req, res) => {
+  const section = await service.restoreFromLog(req.params.logId, req.user.id, {
+    ipAddress: req.ip,
+    reason: req.body.reason,
+  });
+  sendSuccess(res, { data: section });
+});
+
+module.exports = { listPublic, listAll, create, update, remove, reorder, getHistory, restore };

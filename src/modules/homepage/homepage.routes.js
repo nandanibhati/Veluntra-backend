@@ -1,7 +1,7 @@
 const { Router } = require("express");
 const validate = require("../../middleware/validate");
 const { requireAuth, requireRole, requirePermission } = require("../../middleware/auth");
-const { createSectionSchema, updateSectionSchema, reorderSectionsSchema } = require("./homepage.validation");
+const { createSectionSchema, updateSectionSchema, reorderSectionsSchema, restoreSectionSchema } = require("./homepage.validation");
 const controller = require("./homepage.controller");
 
 const router = Router();
@@ -86,6 +86,39 @@ router.delete(
   requireRole("admin"),
   requirePermission("homepage.manage"),
   controller.remove
+);
+
+/**
+ * @openapi
+ * /homepage/admin/history:
+ *   get:
+ *     tags: [Homepage]
+ *     summary: Homepage section change history — every add/edit/remove/reorder
+ *     security: [{ bearerAuth: [] }]
+ */
+router.get(
+  "/admin/history",
+  requireAuth,
+  requireRole("admin"),
+  requirePermission("homepage.manage"),
+  controller.getHistory
+);
+
+/**
+ * @openapi
+ * /homepage/admin/history/{logId}/restore:
+ *   post:
+ *     tags: [Homepage]
+ *     summary: Restore a homepage section to a previous history snapshot
+ *     security: [{ bearerAuth: [] }]
+ */
+router.post(
+  "/admin/history/:logId/restore",
+  requireAuth,
+  requireRole("admin"),
+  requirePermission("homepage.manage"),
+  validate({ body: restoreSectionSchema }),
+  controller.restore
 );
 
 module.exports = router;
