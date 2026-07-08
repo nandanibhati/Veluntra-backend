@@ -100,6 +100,37 @@ const HOMEPAGE_SECTIONS = [
   "testimonials",
 ];
 
+/** Backfills missing photos on the starter catalog's own categories/products — the ones
+ * created by an earlier boot, before deterministic photos were added to this seed. Scoped to
+ * only this seed's own known names/slugs, so it never touches a real merchant's category or
+ * product. Deliberately separate from seedSampleCatalog() (which only runs once, when the
+ * catalog is first created) so it can run on every boot even after the catalog already exists —
+ * that's the whole point: catching rows created before a photo feature existed. */
+async function backfillCatalogImages(prisma) {
+  const categoriesMissingImages = await prisma.category.findMany({
+    where: { imageUrl: null, slug: { in: CATEGORIES.map(slugify) } },
+    select: { id: true, slug: true },
+  });
+  for (const c of categoriesMissingImages) {
+    await prisma.category.update({
+      where: { id: c.id },
+      data: { imageUrl: `https://picsum.photos/seed/category-${c.slug}/300/300` },
+    });
+  }
+
+  const productsMissingImages = await prisma.product.findMany({
+    where: { images: { none: {} }, name: { in: PRODUCTS.map((p) => p.name) } },
+    select: { id: true, name: true },
+  });
+  for (const p of productsMissingImages) {
+    await prisma.productImage.create({
+      data: { productId: p.id, url: `https://picsum.photos/seed/${slugify(p.name)}/600/750`, position: 0 },
+    });
+  }
+
+  return { categoriesBackfilled: categoriesMissingImages.length, productsBackfilled: productsMissingImages.length };
+}
+
 /** Seeds categories, brands, products (attached to `storeId`), shipping methods, coupons,
  * a launch promotion, and default homepage sections. Every step skips if it already exists. */
 async function seedSampleCatalog(prisma, { storeId }) {
@@ -117,20 +148,6 @@ async function seedSampleCatalog(prisma, { storeId }) {
       },
     });
     categoryByName[name] = cat;
-  }
-
-  // Backfill: same reasoning as the product-image backfill below — a category created
-  // before this deterministic-photo step existed (upsert's `update: {}` never touches an
-  // already-existing row) gets one now. Only ever touches categories with no photo at all.
-  const categoriesMissingImages = await prisma.category.findMany({
-    where: { imageUrl: null, slug: { in: CATEGORIES.map(slugify) } },
-    select: { id: true, slug: true },
-  });
-  for (const c of categoriesMissingImages) {
-    await prisma.category.update({
-      where: { id: c.id },
-      data: { imageUrl: `https://picsum.photos/seed/category-${c.slug}/300/300` },
-    });
   }
 
   const FEATURED_BRANDS = new Set(["Veluntra", "Nexora", "Meridian"]);
@@ -195,19 +212,7 @@ async function seedSampleCatalog(prisma, { storeId }) {
     productsCreated += 1;
   }
 
-  // Backfill: any of *this seed's own* products that still has zero images (e.g. created on
-  // an earlier boot, before this deterministic-photo step existed) gets one now. Scoped to
-  // just the known starter-catalog product names — never touches a real product a merchant
-  // created and simply hasn't uploaded a photo for yet.
-  const productsMissingImages = await prisma.product.findMany({
-    where: { images: { none: {} }, name: { in: PRODUCTS.map((p) => p.name) } },
-    select: { id: true, name: true },
-  });
-  for (const p of productsMissingImages) {
-    await prisma.productImage.create({
-      data: { productId: p.id, url: `https://picsum.photos/seed/${slugify(p.name)}/600/750`, position: 0 },
-    });
-  }
+  await backfillCatalogImages(prisma);
 
   const existingPromo = await prisma.promotion.findFirst({ where: { name: "Launch Week Flash Sale" } });
   if (!existingPromo && categoryByName["Audio"]) {
@@ -235,4 +240,4 @@ async function seedSampleCatalog(prisma, { storeId }) {
   return { categoriesCreated: CATEGORIES.length, brandsCreated: BRANDS.length, productsCreated };
 }
 
-module.exports = { seedSampleCatalog, slugify, daysFromNow, CATEGORIES, BRANDS, PRODUCTS };
+module.exports = { seedSampleCatalog, backfillCatalogImages, slugify, daysFromNow, CATEGORIES, BRANDS, PRODUCTS };

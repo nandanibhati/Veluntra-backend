@@ -17,7 +17,7 @@
  */
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
-const { seedSampleCatalog } = require("./seedCatalog");
+const { seedSampleCatalog, backfillCatalogImages } = require("./seedCatalog");
 
 const prisma = new PrismaClient();
 
@@ -105,6 +105,17 @@ async function main() {
       const result = await seedSampleCatalog(prisma, { storeId: store.id });
       console.log(
         `  Starter catalog: ${result.categoriesCreated} categories, ${result.brandsCreated} brands, ${result.productsCreated} products created.`
+      );
+    }
+  } else {
+    // The starter catalog already exists (seedSampleCatalog only ever runs once, above) — but a
+    // row created on an earlier boot can still be missing a photo if it was created before a
+    // photo feature existed. Unlike seedSampleCatalog, this runs on every boot so a fix like
+    // that reaches production the moment it deploys, not only on a from-scratch database.
+    const backfill = await backfillCatalogImages(prisma);
+    if (backfill.categoriesBackfilled || backfill.productsBackfilled) {
+      console.log(
+        `  Backfilled photos: ${backfill.categoriesBackfilled} categories, ${backfill.productsBackfilled} products.`
       );
     }
   }
