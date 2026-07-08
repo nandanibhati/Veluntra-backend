@@ -28,6 +28,7 @@ const CATEGORIES = [
   "Home & Kitchen",
   "Personal Care",
   "Kids & Baby",
+  "Gaming",
 ];
 
 const BRANDS = ["Veluntra", "Aurelia", "Nordline", "Vespera", "Kodex", "Meridian", "Nexora", "Orbital", "Lumen Labs", "Circuit & Co."];
@@ -42,6 +43,9 @@ const CATEGORY_IMAGE_OVERRIDES = {
   Computing: "https://images.unsplash.com/photo-1533908279087-2448f4554f18",
   "Mobile & Tablets": "https://images.unsplash.com/photo-1533908279087-2448f4554f18",
   "Smart Home": "https://images.unsplash.com/photo-1608441999961-c7f3e4c6687a",
+  "Home & Kitchen": "https://images.unsplash.com/photo-1551807306-4bcd16b92a41",
+  "Personal Care": "https://images.unsplash.com/photo-1565647946321-a146ac24a220",
+  Gaming: "https://images.unsplash.com/photo-1580234811497-9df7fd2f357e",
 };
 
 function categoryImageUrl(name) {
@@ -96,6 +100,32 @@ const PRODUCTS = [
   { name: "Cobalt Portable SSD 1TB", category: "Mobile & Tablets", brand: "Circuit & Co.", price: 130, oldPrice: 200, stock: 50, rating: 4.6 },
   { name: "Essential USB-C Hub", category: "Mobile & Tablets", brand: "Nexora", price: 29, stock: 140, rating: 4.8, isNew: true },
   { name: "Vertex Smart Audio Glasses", category: "Mobile & Tablets", brand: "Meridian", price: 89, oldPrice: 162, stock: 15, rating: 4.5 },
+  { name: "Aurelia Ionic Hair Dryer", category: "Personal Care", brand: "Aurelia", price: 85, oldPrice: 120, stock: 45, rating: 4.7, isNew: true },
+  { name: "Sonic Electric Toothbrush", category: "Personal Care", brand: "Vespera", price: 60, stock: 90, rating: 4.8 },
+  { name: "Precision Electric Shaver", category: "Personal Care", brand: "Kodex", price: 95, stock: 50, rating: 4.6 },
+  { name: "Glow Facial Cleansing Brush", category: "Personal Care", brand: "Aurelia", price: 45, oldPrice: 65, stock: 70, rating: 4.7 },
+  { name: "Little Explorer Baby Monitor", category: "Kids & Baby", brand: "Vespera", price: 110, stock: 35, rating: 4.8, isNew: true },
+  { name: "Nova Kids Learning Tablet", category: "Kids & Baby", brand: "Nexora", price: 75, oldPrice: 100, stock: 55, rating: 4.6 },
+  { name: "Dreamy Nightlight Projector", category: "Kids & Baby", brand: "Lumen Labs", price: 32, stock: 80, rating: 4.9 },
+  { name: "SafeTemp Baby Thermometer", category: "Kids & Baby", brand: "Kodex", price: 24, stock: 100, rating: 4.7 },
+  {
+    name: "Vantage Pro Wireless Controller",
+    category: "Gaming",
+    brand: "Circuit & Co.",
+    price: 65,
+    oldPrice: 85,
+    stock: 60,
+    rating: 4.8,
+    isNew: true,
+    options: [{ kind: "color", label: "Storm Black" }, { kind: "color", label: "Arctic White" }],
+    variants: [
+      { combination: { color: "Storm Black" }, stock: 35 },
+      { combination: { color: "Arctic White" }, stock: 25 },
+    ],
+  },
+  { name: "Apex 7.1 Gaming Headset", category: "Gaming", brand: "Orbital", price: 110, oldPrice: 150, stock: 40, rating: 4.7 },
+  { name: "Strike RGB Mechanical Keyboard", category: "Gaming", brand: "Meridian", price: 130, stock: 32, rating: 4.8 },
+  { name: "Precision Gaming Mouse", category: "Gaming", brand: "Nordline", price: 55, stock: 75, rating: 4.6 },
 ];
 
 const SHIPPING_METHODS = [
