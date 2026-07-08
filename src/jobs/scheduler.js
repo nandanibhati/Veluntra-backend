@@ -1,8 +1,12 @@
 const prisma = require("../config/db");
 const notificationsService = require("../modules/notifications/notifications.service");
+const ordersService = require("../modules/orders/orders.service");
 
 const CHECK_INTERVAL_MS = 15 * 60 * 1000; // every 15 minutes
 const SOON_WINDOW_MS = 2 * 60 * 60 * 1000; // "ending/expiring soon" = within 2 hours
+// Matches Stripe Checkout Session's own default expiry — by the time an order hits this age
+// unpaid, the checkout link the customer had is already dead anyway.
+const STALE_CARD_ORDER_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Lightweight in-process scheduler for time-based automatic notifications
@@ -66,9 +70,41 @@ async function checkLowStock() {
   }
 }
 
+/** Card orders whose stock was decremented at checkout but who never actually paid (abandoned
+ * the Stripe Checkout page, closed the tab, session expired) would otherwise sit in "pending"
+ * forever, permanently starving real buyers of stock nobody paid for. Cancelling them restocks
+ * automatically — same restock path as a manual cancellation, via updateStatus(). Only touches
+ * "card" orders: COD is legitimately pending until delivery, and demo_card is marked paid the
+ * instant it's created so it never reaches this state. */
+async function checkStaleCardOrders() {
+  const cutoff = new Date(Date.now() - STALE_CARD_ORDER_MS);
+  const stale = await prisma.order.findMany({
+    where: { paymentMethod: "card", status: "pending", paymentStatus: "pending", placedAt: { lte: cutoff } },
+    select: { id: true, orderNumber: true },
+  });
+  for (const order of stale) {
+    try {
+      await ordersService.updateStatus(
+        order.id,
+        { status: "cancelled", returnReason: "Payment was never completed (Stripe checkout was abandoned or expired)." },
+        { isAdmin: true, actorId: null, ipAddress: null }
+      );
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(`[scheduler] failed to cancel stale unpaid order ${order.orderNumber}:`, err);
+    }
+  }
+}
+
 async function runChecks() {
   try {
-    await Promise.all([checkPromotionsStarting(), checkPromotionsEnding(), checkCouponsExpiring(), checkLowStock()]);
+    await Promise.all([
+      checkPromotionsStarting(),
+      checkPromotionsEnding(),
+      checkCouponsExpiring(),
+      checkLowStock(),
+      checkStaleCardOrders(),
+    ]);
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("[scheduler] check run failed:", err);
