@@ -32,6 +32,28 @@ const CATEGORIES = [
 
 const BRANDS = ["Veluntra", "Aurelia", "Nordline", "Vespera", "Kodex", "Meridian", "Nexora", "Orbital", "Lumen Labs", "Circuit & Co."];
 
+// Curated, hand-verified real photos for categories with actual demo products — picsum.photos
+// (used as the fallback below) returns a fully random stock photo with zero relation to what
+// it's labeled as, which looks broken/unprofessional for a real demo. Categories with no entry
+// here currently have zero demo products anyway, so they keep the picsum fallback.
+const CATEGORY_IMAGE_OVERRIDES = {
+  Audio: "https://images.unsplash.com/photo-1757168120889-4317e57a4849",
+  Wearables: "https://images.unsplash.com/photo-1485206542366-16d53f333d1c",
+  Computing: "https://images.unsplash.com/photo-1533908279087-2448f4554f18",
+  "Mobile & Tablets": "https://images.unsplash.com/photo-1533908279087-2448f4554f18",
+  "Smart Home": "https://images.unsplash.com/photo-1608441999961-c7f3e4c6687a",
+};
+
+function categoryImageUrl(name) {
+  const curated = CATEGORY_IMAGE_OVERRIDES[name];
+  return curated ? `${curated}?w=300&h=300&fit=crop&q=80` : `https://picsum.photos/seed/category-${slugify(name)}/300/300`;
+}
+
+function productImageUrl(categoryName, productName) {
+  const curated = CATEGORY_IMAGE_OVERRIDES[categoryName];
+  return curated ? `${curated}?w=600&h=750&fit=crop&q=80` : `https://picsum.photos/seed/${slugify(productName)}/600/750`;
+}
+
 const PRODUCTS = [
   { name: "Aurora Pro Wireless Earbuds", category: "Audio", brand: "Veluntra", price: 178, oldPrice: 220, stock: 60, rating: 4.9, isNew: true },
   { name: "Zenith Noise-Cancel Headphones", category: "Audio", brand: "Circuit & Co.", price: 349, oldPrice: 420, stock: 42, rating: 4.8 },
@@ -109,12 +131,12 @@ const HOMEPAGE_SECTIONS = [
 async function backfillCatalogImages(prisma) {
   const categoriesMissingImages = await prisma.category.findMany({
     where: { imageUrl: null, slug: { in: CATEGORIES.map(slugify) } },
-    select: { id: true, slug: true },
+    select: { id: true, slug: true, name: true },
   });
   for (const c of categoriesMissingImages) {
     await prisma.category.update({
       where: { id: c.id },
-      data: { imageUrl: `https://picsum.photos/seed/category-${c.slug}/300/300` },
+      data: { imageUrl: categoryImageUrl(c.name) },
     });
   }
 
@@ -122,9 +144,11 @@ async function backfillCatalogImages(prisma) {
     where: { images: { none: {} }, name: { in: PRODUCTS.map((p) => p.name) } },
     select: { id: true, name: true },
   });
+  const productMetaByName = Object.fromEntries(PRODUCTS.map((p) => [p.name, p]));
   for (const p of productsMissingImages) {
+    const category = productMetaByName[p.name]?.category;
     await prisma.productImage.create({
-      data: { productId: p.id, url: `https://picsum.photos/seed/${slugify(p.name)}/600/750`, position: 0 },
+      data: { productId: p.id, url: productImageUrl(category, p.name), position: 0 },
     });
   }
 
@@ -144,7 +168,7 @@ async function seedSampleCatalog(prisma, { storeId }) {
         name,
         slug: slugify(name),
         featured: FEATURED_CATEGORIES.has(name),
-        imageUrl: `https://picsum.photos/seed/category-${slugify(name)}/300/300`,
+        imageUrl: categoryImageUrl(name),
       },
     });
     categoryByName[name] = cat;
@@ -179,10 +203,9 @@ async function seedSampleCatalog(prisma, { storeId }) {
     const brand = brandByName[p.brand];
     const skuPrefix = `${category.slug.slice(0, 3)}-${brand.slug.slice(0, 3)}`.toUpperCase();
     const sku = `${skuPrefix}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
-    // A real (if generic/stock) photo instead of the gradient/monogram fallback — deterministic
-    // per product (same seed always returns the same image from picsum.photos), so re-running
-    // this seed never changes an already-created product's photo.
-    const imageUrl = `https://picsum.photos/seed/${slugify(p.name)}/600/750`;
+    // A real, category-relevant photo instead of the gradient/monogram fallback — deterministic,
+    // so re-running this seed never changes an already-created product's photo.
+    const imageUrl = productImageUrl(p.category, p.name);
 
     await prisma.product.create({
       data: {
