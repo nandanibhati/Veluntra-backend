@@ -16,7 +16,11 @@ const createOrderSchema = z.object({
   // Logged-in checkout uses a saved address; guest checkout supplies one inline instead.
   shippingAddressId: z.string().uuid().optional(),
   shippingMethodId: z.string().uuid(),
-  paymentMethod: z.enum(["card", "paypal", "applepay", "cod"]).default("card"),
+  // "card" covers Stripe Checkout as a whole — card, Apple Pay, and Google Pay are all offered
+  // on Stripe's own hosted page based on the customer's device, not chosen separately here.
+  // (paypal/applepay remain valid at the database level for old orders but are no longer
+  // accepted as new input.)
+  paymentMethod: z.enum(["card", "cod"]).default("card"),
   guestEmail: z.string().email().optional(),
   guestName: z.string().trim().min(1).max(120).optional(),
   guestAddress: guestAddressSchema.optional(),

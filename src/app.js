@@ -30,6 +30,7 @@ const statsRoutes = require("./modules/stats/stats.routes");
 const featuredReviewsRoutes = require("./modules/reviews/reviews.featured.routes");
 const permissionsRoutes = require("./modules/permissions/permissions.routes");
 const homepageRoutes = require("./modules/homepage/homepage.routes");
+const paymentsRoutes = require("./modules/payments/payments.routes");
 
 const app = express();
 
@@ -47,6 +48,12 @@ app.use(
     credentials: true,
   })
 );
+
+// Stripe's webhook signature check needs the exact raw request bytes, so this must be
+// registered with express.raw() *before* the global express.json() below ever touches the
+// body — once express.json() parses it, the original bytes needed for verification are gone.
+app.use("/api/v1/webhooks", express.raw({ type: "application/json" }), paymentsRoutes);
+
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan(env.nodeEnv === "development" ? "dev" : "combined"));

@@ -6,16 +6,38 @@ const prisma = require("../../config/db");
 const settingsService = require("../settings/settings.service");
 const authService = require("../auth/auth.service");
 const cartService = require("../cart/cart.service");
+const paymentsService = require("../payments/payments.service");
 const service = require("./orders.service");
 
+/** Card orders need a Stripe Checkout session to redirect the customer to; COD orders don't.
+ * Shared by both the logged-in and guest checkout branches below. Must be called AFTER
+ * verifyPaymentMethodAvailable() has already confirmed Stripe is configured, so this never
+ * fails once an order (and its stock decrement) already exists. */
+async function buildResponse(orders, paymentMethod, settings) {
+  if (paymentMethod !== "card") return { orders, checkoutUrl: null };
+  const session = await paymentsService.createCheckoutSession(orders, { currency: settings.currency });
+  return { orders, checkoutUrl: session.url };
+}
+
+/** Rejects card-payment requests before any order/stock-decrement happens, so a store with no
+ * Stripe keys configured never leaves behind an unpayable "ghost" order. */
+function verifyPaymentMethodAvailable(paymentMethod) {
+  if (paymentMethod === "card" && !paymentsService.isStripeEnabled()) {
+    throw ApiError.badRequest("Card payment isn't set up for this store yet — please choose Cash on Delivery, or contact the store.");
+  }
+}
+
 const create = asyncHandler(async (req, res) => {
+  const settings = await settingsService.getOrCreate();
+  verifyPaymentMethodAvailable(req.body.paymentMethod);
+
   if (req.user) {
     const orders = await service.createFromCart(req.user.id, req.body);
-    return sendSuccess(res, { data: orders, statusCode: 201 });
+    const data = await buildResponse(orders, req.body.paymentMethod, settings);
+    return sendSuccess(res, { data, statusCode: 201 });
   }
 
   // Unauthenticated request — only allowed when the admin has guest checkout switched on.
-  const settings = await settingsService.getOrCreate();
   if (!settingsService.resolveFeatureFlags(settings).guestCheckout) {
     throw ApiError.unauthorized("Please log in to place an order.");
   }
@@ -36,7 +58,8 @@ const create = asyncHandler(async (req, res) => {
     shippingMethodId,
     paymentMethod,
   });
-  sendSuccess(res, { data: orders, statusCode: 201 });
+  const data = await buildResponse(orders, paymentMethod, settings);
+  sendSuccess(res, { data, statusCode: 201 });
 });
 
 const list = asyncHandler(async (req, res) => {

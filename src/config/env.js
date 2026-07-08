@@ -71,6 +71,15 @@ const env = {
   uploadDir: process.env.UPLOAD_DIR || "uploads",
   maxUploadSizeMb: Number(process.env.MAX_UPLOAD_SIZE_MB) || 5,
   allowDevSeed: process.env.ALLOW_DEV_SEED === "true" || !isProduction,
+  // Used to build Stripe's success_url/cancel_url — where the customer lands after paying.
+  frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
+  // Optional — card payment is simply unavailable (storefront falls back to COD-only) until
+  // these are set. Never required at boot, unlike the JWT secrets above: a store should be
+  // able to launch and take COD orders before its owner has finished Stripe onboarding.
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY || null,
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || null,
+  },
 };
 
 module.exports = env;

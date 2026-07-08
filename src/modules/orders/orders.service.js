@@ -437,6 +437,32 @@ async function requestExchange(userId, orderId, { reason, ipAddress }) {
   return updateStatus(orderId, { status: "exchange_requested", returnReason: reason }, { isAdmin: true, actorId: userId, ipAddress });
 }
 
+/** Called only from the Stripe webhook (already signature-verified there, so this is trusted —
+ * never expose a route that lets a regular request mark an order paid directly). Idempotent:
+ * Stripe may deliver the same webhook more than once, and an order already marked paid is
+ * simply left alone rather than double-processed. */
+async function markPaid(orderIds) {
+  for (const id of orderIds) {
+    const order = await prisma.order.findUnique({ where: { id } });
+    if (!order || order.paymentStatus === "paid") continue;
+
+    await prisma.order.update({ where: { id }, data: { paymentStatus: "paid" } });
+    await logActivity({
+      actorId: order.userId,
+      action: `Payment received for order ${order.orderNumber}`,
+      scope: "orders",
+      entityType: "Order",
+      entityId: order.id,
+      previousValue: { paymentStatus: order.paymentStatus },
+      newValue: { paymentStatus: "paid" },
+    });
+    await notificationsService.create(order.userId, {
+      title: "Payment received",
+      body: `Your payment for order ${order.orderNumber} was successful.`,
+    });
+  }
+}
+
 module.exports = {
   createFromCart,
   listForUser,
@@ -446,5 +472,6 @@ module.exports = {
   requestCancellation,
   requestReturn,
   requestExchange,
+  markPaid,
   ORDER_INCLUDE,
 };

@@ -2,6 +2,7 @@ const prisma = require("../../config/db");
 const { toPlain } = require("../../utils/serialize");
 const { parsePagination } = require("../../utils/pagination");
 const ApiError = require("../../utils/ApiError");
+const env = require("../../config/env");
 
 const SECRET_KEYS = ["smtpConfig", "paymentGatewayConfig", "cloudinaryConfig"];
 
@@ -138,6 +139,7 @@ async function getPublic() {
     animationConfig: resolveAnimationConfig(plain),
     popupBanner: resolvePopupBanner(plain),
     vipTiers: resolveVipTiers(plain),
+    stripeEnabled: Boolean(env.stripe.secretKey),
   };
 }
 
