@@ -173,20 +173,50 @@ async function createFromCart(userId, { shippingAddressId, shippingMethodId, pay
       });
 
       for (const { item, product, variant } of group.items) {
+        // Atomic, conditional decrement — the WHERE clause's stock check is evaluated by
+        // Postgres at UPDATE time under row-level lock, not from the possibly-stale value read
+        // earlier in this request. This is what actually prevents overselling: two concurrent
+        // checkouts for the last unit can no longer both pass a stale "stock >= quantity" check
+        // and both commit — only one updateMany can win the row.
         if (variant) {
-          const quantityBefore = variant.stock;
-          const quantityAfter = quantityBefore - item.quantity;
-          await tx.productVariant.update({ where: { id: variant.id }, data: { stock: quantityAfter } });
+          const result = await tx.productVariant.updateMany({
+            where: { id: variant.id, stock: { gte: item.quantity } },
+            data: { stock: { decrement: item.quantity } },
+          });
+          if (result.count === 0) {
+            throw ApiError.badRequest(`"${product.name}" no longer has enough stock — please update your cart.`);
+          }
+          const updated = await tx.productVariant.findUnique({ where: { id: variant.id }, select: { stock: true } });
           await logInventoryChange(
-            { productId: product.id, variantId: variant.id, type: "order_deduct", quantityBefore, quantityAfter, actorId: userId, orderId: order.id },
+            {
+              productId: product.id,
+              variantId: variant.id,
+              type: "order_deduct",
+              quantityBefore: updated.stock + item.quantity,
+              quantityAfter: updated.stock,
+              actorId: userId,
+              orderId: order.id,
+            },
             tx
           );
         } else {
-          const quantityBefore = product.stock;
-          const quantityAfter = quantityBefore - item.quantity;
-          await tx.product.update({ where: { id: product.id }, data: { stock: quantityAfter } });
+          const result = await tx.product.updateMany({
+            where: { id: product.id, stock: { gte: item.quantity } },
+            data: { stock: { decrement: item.quantity } },
+          });
+          if (result.count === 0) {
+            throw ApiError.badRequest(`"${product.name}" no longer has enough stock — please update your cart.`);
+          }
+          const updated = await tx.product.findUnique({ where: { id: product.id }, select: { stock: true } });
           await logInventoryChange(
-            { productId: product.id, type: "order_deduct", quantityBefore, quantityAfter, actorId: userId, orderId: order.id },
+            {
+              productId: product.id,
+              type: "order_deduct",
+              quantityBefore: updated.stock + item.quantity,
+              quantityAfter: updated.stock,
+              actorId: userId,
+              orderId: order.id,
+            },
             tx
           );
         }
