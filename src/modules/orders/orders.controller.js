@@ -9,27 +9,38 @@ const cartService = require("../cart/cart.service");
 const paymentsService = require("../payments/payments.service");
 const service = require("./orders.service");
 
-/** Card orders need a Stripe Checkout session to redirect the customer to; COD orders don't.
- * Shared by both the logged-in and guest checkout branches below. Must be called AFTER
- * verifyPaymentMethodAvailable() has already confirmed Stripe is configured, so this never
- * fails once an order (and its stock decrement) already exists. */
+/** Card orders need a Stripe Checkout session to redirect the customer to; "demo_card" orders
+ * are marked paid immediately with no real gateway involved (demo/test mode only); COD orders
+ * need neither. Shared by both the logged-in and guest checkout branches below. Must be called
+ * AFTER verifyPaymentMethodAvailable() has already confirmed the method is actually available,
+ * so this never fails once an order (and its stock decrement) already exists. */
 async function buildResponse(orders, paymentMethod, settings) {
-  if (paymentMethod !== "card") return { orders, checkoutUrl: null };
-  const session = await paymentsService.createCheckoutSession(orders, { currency: settings.currency });
-  return { orders, checkoutUrl: session.url };
+  if (paymentMethod === "card") {
+    const session = await paymentsService.createCheckoutSession(orders, { currency: settings.currency });
+    return { orders, checkoutUrl: session.url };
+  }
+  if (paymentMethod === "demo_card") {
+    await service.markPaid(orders.map((o) => o.id));
+    return { orders: orders.map((o) => ({ ...o, paymentStatus: "paid" })), checkoutUrl: null };
+  }
+  return { orders, checkoutUrl: null };
 }
 
-/** Rejects card-payment requests before any order/stock-decrement happens, so a store with no
- * Stripe keys configured never leaves behind an unpayable "ghost" order. */
-function verifyPaymentMethodAvailable(paymentMethod) {
+/** Rejects payment methods that aren't actually available before any order/stock-decrement
+ * happens, so a store with no Stripe keys configured never leaves behind an unpayable "ghost"
+ * order, and demo_card can't be used by real customers unless the store owner switched it on. */
+function verifyPaymentMethodAvailable(paymentMethod, settings) {
   if (paymentMethod === "card" && !paymentsService.isStripeEnabled()) {
     throw ApiError.badRequest("Card payment isn't set up for this store yet — please choose Cash on Delivery, or contact the store.");
+  }
+  if (paymentMethod === "demo_card" && !settingsService.resolveFeatureFlags(settings).demoCard) {
+    throw ApiError.badRequest("Demo card checkout is turned off for this store.");
   }
 }
 
 const create = asyncHandler(async (req, res) => {
   const settings = await settingsService.getOrCreate();
-  verifyPaymentMethodAvailable(req.body.paymentMethod);
+  verifyPaymentMethodAvailable(req.body.paymentMethod, settings);
 
   if (req.user) {
     const orders = await service.createFromCart(req.user.id, req.body);

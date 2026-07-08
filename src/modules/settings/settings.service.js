@@ -34,6 +34,7 @@ const DEFAULT_FEATURE_FLAGS = {
   emailNotifications: true,
   pushNotifications: true,
   cookieConsent: true,
+  demoCard: false,
 };
 
 const DEFAULT_POPUP_BANNER = {

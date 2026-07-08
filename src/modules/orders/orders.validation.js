@@ -18,9 +18,11 @@ const createOrderSchema = z.object({
   shippingMethodId: z.string().uuid(),
   // "card" covers Stripe Checkout as a whole — card, Apple Pay, and Google Pay are all offered
   // on Stripe's own hosted page based on the customer's device, not chosen separately here.
-  // (paypal/applepay remain valid at the database level for old orders but are no longer
-  // accepted as new input.)
-  paymentMethod: z.enum(["card", "cod"]).default("card"),
+  // "demo_card" is a no-Stripe-required stand-in that marks the order paid immediately, gated
+  // behind the demoCard feature flag — for demoing the full order flow before real Stripe keys
+  // are configured. (paypal/applepay remain valid at the database level for old orders but are
+  // no longer accepted as new input.)
+  paymentMethod: z.enum(["card", "cod", "demo_card"]).default("card"),
   guestEmail: z.string().email().optional(),
   guestName: z.string().trim().min(1).max(120).optional(),
   guestAddress: guestAddressSchema.optional(),

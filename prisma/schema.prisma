@@ -99,6 +99,7 @@ enum PaymentMethod {
   paypal
   applepay
   cod
+  demo_card
 }
 
 enum ActivityScope {

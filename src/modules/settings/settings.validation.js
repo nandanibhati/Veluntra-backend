@@ -44,6 +44,7 @@ const updateSettingsSchema = z.object({
       emailNotifications: z.boolean(),
       pushNotifications: z.boolean(),
       cookieConsent: z.boolean(),
+      demoCard: z.boolean(),
     })
     .partial()
     .optional()
