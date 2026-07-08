@@ -12,7 +12,11 @@ const ADMIN_ROLES = new Set(["admin", "superadmin"]);
 async function resolveStoreContext(req) {
   if (ADMIN_ROLES.has(req.user.role)) {
     const explicitStoreId = req.body.storeId || req.query.storeId;
-    if (explicitStoreId) return { storeId: explicitStoreId, isAdmin: true };
+    if (explicitStoreId) {
+      const exists = await prisma.store.findUnique({ where: { id: explicitStoreId }, select: { id: true } });
+      if (!exists) throw ApiError.badRequest("The given storeId doesn't exist.");
+      return { storeId: explicitStoreId, isAdmin: true };
+    }
 
     // No storeId given (e.g. admin/superadmin using the Seller Dashboard's product form,
     // which never asks for one) — while the platform has zero or one store, resolve (or
