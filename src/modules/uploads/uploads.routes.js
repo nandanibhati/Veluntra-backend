@@ -40,7 +40,7 @@ router.post(
     const useCloudinary = await cloudinaryUtil.isConfigured();
     const urls = await Promise.all(
       req.files.map((file) =>
-        useCloudinary ? cloudinaryUtil.uploadBuffer(file.buffer) : saveBufferLocally(file.buffer, file.originalname)
+        useCloudinary ? cloudinaryUtil.uploadBuffer(file.buffer) : saveBufferLocally(file.buffer, file.mimetype)
       )
     );
 

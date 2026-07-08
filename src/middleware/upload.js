@@ -8,15 +8,24 @@ const ApiError = require("../utils/ApiError");
 const uploadRoot = path.resolve(__dirname, "../../", env.uploadDir);
 if (!fs.existsSync(uploadRoot)) fs.mkdirSync(uploadRoot, { recursive: true });
 
+// Extension is always derived from this whitelist — NEVER from the client-supplied
+// originalname/mimetype directly — so a file can't be persisted (and later served by
+// express.static, which sets Content-Type from the extension) as .html/.svg/.js no matter
+// what an attacker names the upload or spoofs the multipart Content-Type header to.
+const MIME_TO_EXT = {
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+  "image/gif": ".gif",
+};
+const ALLOWED_TYPES = new Set(Object.keys(MIME_TO_EXT));
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadRoot),
   filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `${randomUUID()}${ext}`);
+    cb(null, `${randomUUID()}${MIME_TO_EXT[file.mimetype]}`);
   },
 });
-
-const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
 function fileFilter(req, file, cb) {
   if (!ALLOWED_TYPES.has(file.mimetype)) {
@@ -39,9 +48,12 @@ const uploadImagesMemory = multer({
   limits: { fileSize: env.maxUploadSizeMb * 1024 * 1024 },
 });
 
-/** Persists an in-memory file buffer to local disk (the non-Cloudinary fallback path). */
-function saveBufferLocally(buffer, originalname) {
-  const ext = path.extname(originalname).toLowerCase();
+/** Persists an in-memory file buffer to local disk (the non-Cloudinary fallback path). Extension
+ * comes from the already-validated mimetype (see MIME_TO_EXT above), never from the client-
+ * supplied originalname. */
+function saveBufferLocally(buffer, mimetype) {
+  const ext = MIME_TO_EXT[mimetype];
+  if (!ext) throw ApiError.badRequest("Only JPEG, PNG, WEBP, or GIF images are allowed");
   const filename = `${randomUUID()}${ext}`;
   fs.writeFileSync(path.join(uploadRoot, filename), buffer);
   return publicUrlFor(filename);
