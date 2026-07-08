@@ -181,6 +181,19 @@ async function seedSampleCatalog(prisma, { storeId }) {
     productsCreated += 1;
   }
 
+  // Backfill: any product that still has zero images (e.g. created on an earlier boot,
+  // before this deterministic-photo step existed) gets one now. Runs every time, but only
+  // ever touches products with no images at all — never overwrites a real product photo.
+  const productsMissingImages = await prisma.product.findMany({
+    where: { images: { none: {} } },
+    select: { id: true, name: true },
+  });
+  for (const p of productsMissingImages) {
+    await prisma.productImage.create({
+      data: { productId: p.id, url: `https://picsum.photos/seed/${slugify(p.name)}/600/750`, position: 0 },
+    });
+  }
+
   const existingPromo = await prisma.promotion.findFirst({ where: { name: "Launch Week Flash Sale" } });
   if (!existingPromo && categoryByName["Audio"]) {
     await prisma.promotion.create({
