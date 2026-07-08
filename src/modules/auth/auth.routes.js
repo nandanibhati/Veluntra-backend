@@ -5,7 +5,6 @@ const { authLimiter } = require("../../middleware/rateLimit");
 const {
   registerSchema,
   loginSchema,
-  refreshSchema,
   requestPasswordResetSchema,
   resetPasswordSchema,
   verifyEmailSchema,
@@ -63,40 +62,22 @@ router.post("/login", authLimiter, validate({ body: loginSchema }), controller.l
  * /auth/refresh:
  *   post:
  *     tags: [Auth]
- *     summary: Exchange a refresh token for a new access/refresh token pair
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [refreshToken]
- *             properties:
- *               refreshToken: { type: string }
+ *     summary: Exchange the refresh token cookie for a new access/refresh token pair
  *     responses:
  *       200: { description: New tokens issued }
  */
-router.post("/refresh", validate({ body: refreshSchema }), controller.refresh);
+router.post("/refresh", controller.refresh);
 
 /**
  * @openapi
  * /auth/logout:
  *   post:
  *     tags: [Auth]
- *     summary: Revoke a refresh token
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [refreshToken]
- *             properties:
- *               refreshToken: { type: string }
+ *     summary: Revoke the current refresh token cookie
  *     responses:
  *       200: { description: Logged out }
  */
-router.post("/logout", validate({ body: refreshSchema }), controller.logout);
+router.post("/logout", controller.logout);
 
 /**
  * @openapi

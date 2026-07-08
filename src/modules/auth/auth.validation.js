@@ -12,10 +12,6 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-const refreshSchema = z.object({
-  refreshToken: z.string().min(1),
-});
-
 const requestPasswordResetSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
 });
@@ -32,7 +28,6 @@ const verifyEmailSchema = z.object({
 module.exports = {
   registerSchema,
   loginSchema,
-  refreshSchema,
   requestPasswordResetSchema,
   resetPasswordSchema,
   verifyEmailSchema,

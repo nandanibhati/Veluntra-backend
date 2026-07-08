@@ -21,13 +21,18 @@ function verifyRefreshToken(token) {
   return jwt.verify(token, env.jwt.refreshSecret);
 }
 
-/** Converts a "30d" / "15m" style duration string to a future Date. */
-function expiryFromNow(durationString) {
+/** Converts a "30d" / "15m" style duration string to a millisecond count. */
+function durationToMs(durationString) {
   const match = /^(\d+)([smhd])$/.exec(durationString);
-  if (!match) return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  if (!match) return 30 * 24 * 60 * 60 * 1000;
   const value = Number(match[1]);
   const unitMs = { s: 1000, m: 60000, h: 3600000, d: 86400000 }[match[2]];
-  return new Date(Date.now() + value * unitMs);
+  return value * unitMs;
+}
+
+/** Converts a "30d" / "15m" style duration string to a future Date. */
+function expiryFromNow(durationString) {
+  return new Date(Date.now() + durationToMs(durationString));
 }
 
 module.exports = {
@@ -36,4 +41,5 @@ module.exports = {
   verifyAccessToken,
   verifyRefreshToken,
   expiryFromNow,
+  durationToMs,
 };
