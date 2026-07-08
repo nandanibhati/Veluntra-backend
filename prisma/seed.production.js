@@ -118,6 +118,11 @@ async function main() {
         `  Backfilled photos: ${backfill.categoriesBackfilled} categories, ${backfill.productsBackfilled} products.`
       );
     }
+    if (backfill.categoriesUpgraded || backfill.productsUpgraded) {
+      console.log(
+        `  Upgraded photos: ${backfill.categoriesUpgraded} categories, ${backfill.productsUpgraded} products (random -> curated).`
+      );
+    }
   }
 
   console.log("Production bootstrap complete.");

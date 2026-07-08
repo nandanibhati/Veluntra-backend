@@ -152,7 +152,36 @@ async function backfillCatalogImages(prisma) {
     });
   }
 
-  return { categoriesBackfilled: categoriesMissingImages.length, productsBackfilled: productsMissingImages.length };
+  // One-time upgrade: categories/products that already got a picsum.photos photo on an earlier
+  // boot (before CATEGORY_IMAGE_OVERRIDES existed) now get swapped to the curated real photo.
+  // Scoped to this seed's own known names, and only ever replaces a still-picsum URL — never
+  // touches a photo a real merchant/admin has since uploaded. Naturally a no-op once upgraded
+  // (the URL no longer matches the picsum prefix), so this is safe to run on every boot.
+  const overriddenCategoryNames = Object.keys(CATEGORY_IMAGE_OVERRIDES).filter((name) => CATEGORIES.includes(name));
+  const categoriesToUpgrade = await prisma.category.findMany({
+    where: { name: { in: overriddenCategoryNames }, imageUrl: { startsWith: "https://picsum.photos/" } },
+    select: { id: true, name: true },
+  });
+  for (const c of categoriesToUpgrade) {
+    await prisma.category.update({ where: { id: c.id }, data: { imageUrl: categoryImageUrl(c.name) } });
+  }
+
+  const overriddenProductNames = PRODUCTS.filter((p) => CATEGORY_IMAGE_OVERRIDES[p.category]).map((p) => p.name);
+  const productImagesToUpgrade = await prisma.productImage.findMany({
+    where: { product: { name: { in: overriddenProductNames } }, url: { startsWith: "https://picsum.photos/" } },
+    select: { id: true, product: { select: { name: true } } },
+  });
+  for (const img of productImagesToUpgrade) {
+    const category = productMetaByName[img.product.name]?.category;
+    await prisma.productImage.update({ where: { id: img.id }, data: { url: productImageUrl(category, img.product.name) } });
+  }
+
+  return {
+    categoriesBackfilled: categoriesMissingImages.length,
+    productsBackfilled: productsMissingImages.length,
+    categoriesUpgraded: categoriesToUpgrade.length,
+    productsUpgraded: productImagesToUpgrade.length,
+  };
 }
 
 /** Seeds categories, brands, products (attached to `storeId`), shipping methods, coupons,
