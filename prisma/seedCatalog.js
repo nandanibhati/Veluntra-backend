@@ -119,6 +119,20 @@ async function seedSampleCatalog(prisma, { storeId }) {
     categoryByName[name] = cat;
   }
 
+  // Backfill: same reasoning as the product-image backfill below — a category created
+  // before this deterministic-photo step existed (upsert's `update: {}` never touches an
+  // already-existing row) gets one now. Only ever touches categories with no photo at all.
+  const categoriesMissingImages = await prisma.category.findMany({
+    where: { imageUrl: null, slug: { in: CATEGORIES.map(slugify) } },
+    select: { id: true, slug: true },
+  });
+  for (const c of categoriesMissingImages) {
+    await prisma.category.update({
+      where: { id: c.id },
+      data: { imageUrl: `https://picsum.photos/seed/category-${c.slug}/300/300` },
+    });
+  }
+
   const FEATURED_BRANDS = new Set(["Veluntra", "Nexora", "Meridian"]);
   const brandByName = {};
   for (const name of BRANDS) {
@@ -181,11 +195,12 @@ async function seedSampleCatalog(prisma, { storeId }) {
     productsCreated += 1;
   }
 
-  // Backfill: any product that still has zero images (e.g. created on an earlier boot,
-  // before this deterministic-photo step existed) gets one now. Runs every time, but only
-  // ever touches products with no images at all — never overwrites a real product photo.
+  // Backfill: any of *this seed's own* products that still has zero images (e.g. created on
+  // an earlier boot, before this deterministic-photo step existed) gets one now. Scoped to
+  // just the known starter-catalog product names — never touches a real product a merchant
+  // created and simply hasn't uploaded a photo for yet.
   const productsMissingImages = await prisma.product.findMany({
-    where: { images: { none: {} } },
+    where: { images: { none: {} }, name: { in: PRODUCTS.map((p) => p.name) } },
     select: { id: true, name: true },
   });
   for (const p of productsMissingImages) {
