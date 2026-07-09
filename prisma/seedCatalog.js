@@ -29,6 +29,9 @@ const CATEGORIES = [
   "Personal Care",
   "Kids & Baby",
   "Gaming",
+  "Cameras & Photography",
+  "Office & Stationery",
+  "Sports & Fitness",
 ];
 
 const BRANDS = ["Veluntra", "Aurelia", "Nordline", "Vespera", "Kodex", "Meridian", "Nexora", "Orbital", "Lumen Labs", "Circuit & Co."];
@@ -46,6 +49,9 @@ const CATEGORY_IMAGE_OVERRIDES = {
   "Home & Kitchen": "https://images.unsplash.com/photo-1551807306-4bcd16b92a41",
   "Personal Care": "https://images.unsplash.com/photo-1565647946321-a146ac24a220",
   Gaming: "https://images.unsplash.com/photo-1580234811497-9df7fd2f357e",
+  "Cameras & Photography": "https://images.unsplash.com/photo-1571139475521-f01904fc5675",
+  "Office & Stationery": "https://images.unsplash.com/photo-1508873699372-7aeab60b44ab",
+  "Sports & Fitness": "https://images.unsplash.com/photo-1675625500632-2d276bd51920",
 };
 
 function categoryImageUrl(name) {
@@ -126,6 +132,18 @@ const PRODUCTS = [
   { name: "Apex 7.1 Gaming Headset", category: "Gaming", brand: "Orbital", price: 110, oldPrice: 150, stock: 40, rating: 4.7 },
   { name: "Strike RGB Mechanical Keyboard", category: "Gaming", brand: "Meridian", price: 130, stock: 32, rating: 4.8 },
   { name: "Precision Gaming Mouse", category: "Gaming", brand: "Nordline", price: 55, stock: 75, rating: 4.6 },
+  { name: "Lumen Mirrorless Camera", category: "Cameras & Photography", brand: "Lumen Labs", price: 1120, oldPrice: 1350, stock: 12, rating: 4.9, isNew: true },
+  { name: "Vespera Compact Vlogging Camera", category: "Cameras & Photography", brand: "Vespera", price: 420, stock: 28, rating: 4.7 },
+  { name: "Traveler Tripod & Gimbal Kit", category: "Cameras & Photography", brand: "Orbital", price: 89, oldPrice: 120, stock: 45, rating: 4.6 },
+  { name: "64GB Pro Memory Card", category: "Cameras & Photography", brand: "Circuit & Co.", price: 32, stock: 150, rating: 4.8 },
+  { name: "Meridian Executive Notebook Set", category: "Office & Stationery", brand: "Meridian", price: 22, stock: 200, rating: 4.7 },
+  { name: "Ergo Wireless Desk Mouse", category: "Office & Stationery", brand: "Nordline", price: 35, oldPrice: 48, stock: 110, rating: 4.6 },
+  { name: "Adjustable Laptop Desk Stand", category: "Office & Stationery", brand: "Veluntra", price: 48, stock: 65, rating: 4.8, isNew: true },
+  { name: "Precision Fountain Pen Set", category: "Office & Stationery", brand: "Aurelia", price: 40, stock: 90, rating: 4.9 },
+  { name: "Momentum Adjustable Dumbbell Set", category: "Sports & Fitness", brand: "Orbital", price: 145, oldPrice: 190, stock: 20, rating: 4.8, isNew: true },
+  { name: "FlexFit Premium Yoga Mat", category: "Sports & Fitness", brand: "Vespera", price: 38, stock: 100, rating: 4.7 },
+  { name: "Pulse Resistance Band Set", category: "Sports & Fitness", brand: "Kodex", price: 25, stock: 130, rating: 4.6 },
+  { name: "Endurance Insulated Sports Bottle", category: "Sports & Fitness", brand: "Meridian", price: 22, stock: 140, rating: 4.7 },
 ];
 
 const SHIPPING_METHODS = [
