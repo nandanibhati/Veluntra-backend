@@ -17,7 +17,7 @@
  */
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
-const { seedSampleCatalog } = require("./seedCatalog");
+const { seedSampleCatalog, rehostCuratedImages } = require("./seedCatalog");
 
 const prisma = new PrismaClient();
 
@@ -117,6 +117,20 @@ async function main() {
     if (result.categoriesUpgraded || result.productsUpgraded) {
       console.log(`  Upgraded photos: ${result.categoriesUpgraded} categories, ${result.productsUpgraded} products (random -> curated).`);
     }
+  }
+
+  // Once Cloudinary is configured (Settings > Image storage), move the curated seed photos off
+  // Unsplash's hotlink CDN and onto Cloudinary — a no-op until then. See rehostCuratedImages'
+  // own doc comment for why this matters even though the Unsplash URLs work fine via direct
+  // fetch/curl testing. Never let this block the server from starting — worst case it retries
+  // next boot.
+  try {
+    const rehost = await rehostCuratedImages(prisma);
+    if (rehost.rehosted) {
+      console.log(`  Re-hosted ${rehost.rehosted} catalog image(s) from Unsplash to Cloudinary.`);
+    }
+  } catch (err) {
+    console.error("  Skipping image re-host this boot:", err.message);
   }
 
   console.log("Production bootstrap complete.");

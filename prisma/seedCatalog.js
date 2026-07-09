@@ -232,6 +232,59 @@ async function backfillCatalogImages(prisma) {
   };
 }
 
+async function downloadImage(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Failed to download ${url}: ${res.status}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
+/** Moves the curated catalog photos off Unsplash's hotlink CDN and onto Cloudinary, once an
+ * admin has configured it (Settings > Image storage) — a no-op until then. Hotlinking a public
+ * demo image service is fine for a quick preview but isn't reliable enough to depend on for a
+ * real storefront (rate limits, hotlink protection, no SLA); Cloudinary is what real uploads
+ * already use, so this gives the seed's own placeholder photos the same durability. Each unique
+ * curated photo is downloaded and uploaded exactly once, then every category/product row still
+ * pointing at that exact Unsplash URL is switched to the new Cloudinary URL. Safe to run on every
+ * boot — already-migrated rows no longer match the Unsplash URL, so there's nothing to redo. */
+async function rehostCuratedImages(prisma) {
+  const cloudinaryUtil = require("../src/utils/cloudinary");
+  if (!(await cloudinaryUtil.isConfigured())) return { rehosted: 0 };
+
+  let rehosted = 0;
+  for (const baseUrl of Object.values(CATEGORY_IMAGE_OVERRIDES)) {
+    const catUrl = `${baseUrl}?w=300&h=300&fit=crop&q=80`;
+    const prodUrl = `${baseUrl}?w=600&h=750&fit=crop&q=80`;
+
+    // This runs during server boot, before the app starts accepting traffic — a single failed
+    // download/upload (network blip, Cloudinary hiccup) must never crash the whole bootstrap and
+    // take the site down. Worst case: this one photo stays on Unsplash and gets retried next boot.
+    try {
+      const catRow = await prisma.category.findFirst({ where: { imageUrl: catUrl } });
+      if (catRow) {
+        const buffer = await downloadImage(catUrl);
+        const newUrl = await cloudinaryUtil.uploadBuffer(buffer, { folder: "veluntra/seed-categories" });
+        await prisma.category.updateMany({ where: { imageUrl: catUrl }, data: { imageUrl: newUrl } });
+        rehosted += 1;
+      }
+    } catch (err) {
+      console.error(`  Couldn't re-host category photo ${catUrl}:`, err.message);
+    }
+
+    try {
+      const prodImages = await prisma.productImage.findMany({ where: { url: prodUrl } });
+      if (prodImages.length > 0) {
+        const buffer = await downloadImage(prodUrl);
+        const newUrl = await cloudinaryUtil.uploadBuffer(buffer, { folder: "veluntra/seed-products" });
+        await prisma.productImage.updateMany({ where: { url: prodUrl }, data: { url: newUrl } });
+        rehosted += prodImages.length;
+      }
+    } catch (err) {
+      console.error(`  Couldn't re-host product photo ${prodUrl}:`, err.message);
+    }
+  }
+  return { rehosted };
+}
+
 /** Seeds categories, brands, products (attached to `storeId`), shipping methods, coupons,
  * a launch promotion, and default homepage sections. Every step skips if it already exists. */
 async function seedSampleCatalog(prisma, { storeId }) {
@@ -346,4 +399,4 @@ async function seedSampleCatalog(prisma, { storeId }) {
   return { categoriesCreated, brandsCreated, productsCreated, ...backfill };
 }
 
-module.exports = { seedSampleCatalog, backfillCatalogImages, slugify, daysFromNow, CATEGORIES, BRANDS, PRODUCTS };
+module.exports = { seedSampleCatalog, backfillCatalogImages, rehostCuratedImages, slugify, daysFromNow, CATEGORIES, BRANDS, PRODUCTS };
