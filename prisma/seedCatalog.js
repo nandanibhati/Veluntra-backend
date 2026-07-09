@@ -160,6 +160,7 @@ const COUPONS = [
 ];
 
 const HOMEPAGE_SECTIONS = [
+  "hero_banner",
   "categories",
   "featured_products",
   "trending_products",
@@ -390,13 +391,27 @@ async function seedSampleCatalog(prisma, { storeId }) {
   }
 
   const sectionCount = await prisma.homepageSection.count();
+  let heroBannerCreated = false;
   if (sectionCount === 0) {
     for (const [position, type] of HOMEPAGE_SECTIONS.entries()) {
       await prisma.homepageSection.create({ data: { type, position, enabled: true } });
     }
+  } else {
+    // hero_banner was added to HOMEPAGE_SECTIONS after some stores already had their sections
+    // created (sectionCount === 0 above only ever fires once) — without this, those stores can
+    // never get one and are stuck on the hardcoded fallback banner with no way to edit it, since
+    // the Homepage CMS can only show an "Edit" button for a section that actually exists as a row.
+    const hasHero = await prisma.homepageSection.findFirst({ where: { type: "hero_banner" } });
+    if (!hasHero) {
+      const lowestPosition = await prisma.homepageSection.aggregate({ _min: { position: true } });
+      await prisma.homepageSection.create({
+        data: { type: "hero_banner", position: (lowestPosition._min.position ?? 0) - 1, enabled: true },
+      });
+      heroBannerCreated = true;
+    }
   }
 
-  return { categoriesCreated, brandsCreated, productsCreated, ...backfill };
+  return { categoriesCreated, brandsCreated, productsCreated, heroBannerCreated, ...backfill };
 }
 
 module.exports = { seedSampleCatalog, backfillCatalogImages, rehostCuratedImages, slugify, daysFromNow, CATEGORIES, BRANDS, PRODUCTS };

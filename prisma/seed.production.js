@@ -117,6 +117,9 @@ async function main() {
     if (result.categoriesUpgraded || result.productsUpgraded) {
       console.log(`  Upgraded photos: ${result.categoriesUpgraded} categories, ${result.productsUpgraded} products (random -> curated).`);
     }
+    if (result.heroBannerCreated) {
+      console.log("  Added a Hero Banner section — editable from Admin > Homepage CMS.");
+    }
   }
 
   // Once Cloudinary is configured (Settings > Image storage), move the curated seed photos off
