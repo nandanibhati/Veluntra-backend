@@ -8,7 +8,7 @@ const controller = require("./seller.controller");
 const router = Router();
 // "admin" is included because, while the platform only has one store, Admin/Super
 // Admin are allowed to manage it from here too (see getStoreForOwner in seller.service.js).
-router.use(requireAuth, requireRole("seller", "admin"));
+router.use(requireAuth, requireRole("seller", "dropshipper", "admin"));
 
 /**
  * @openapi

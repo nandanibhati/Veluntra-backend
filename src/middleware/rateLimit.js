@@ -17,4 +17,14 @@ const authLimiter = rateLimit({
   message: { success: false, error: { message: "Too many attempts. Please try again later." } },
 });
 
-module.exports = { apiLimiter, authLimiter };
+/** Guards the public suggestion box from spam — generous enough for a real user submitting a
+ * few notes, tight enough to blunt a scripted flood. */
+const suggestionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: { message: "Too many suggestions submitted. Please try again later." } },
+});
+
+module.exports = { apiLimiter, authLimiter, suggestionLimiter };

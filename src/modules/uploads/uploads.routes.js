@@ -32,7 +32,7 @@ const router = Router();
 router.post(
   "/images",
   requireAuth,
-  requireRole("seller", "admin"),
+  requireRole("seller", "dropshipper", "admin"),
   uploadImagesMemory.array("files", 8),
   asyncHandler(async (req, res) => {
     if (!req.files || req.files.length === 0) throw ApiError.badRequest("No files uploaded.");

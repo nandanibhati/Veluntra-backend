@@ -11,6 +11,7 @@ const {
 } = require("./admin.validation");
 const { updateOrderStatusSchema, assignSellerSchema } = require("../orders/orders.validation");
 const reviewsModerationRouter = require("../reviews/reviews.moderation.routes");
+const suggestionsModerationRouter = require("../suggestions/suggestions.moderation.routes");
 const controller = require("./admin.controller");
 
 const router = Router();
@@ -192,5 +193,15 @@ router.get("/dashboard-summary", controller.dashboardSummary);
  *     security: [{ bearerAuth: [] }]
  */
 router.use("/reviews", reviewsModerationRouter);
+
+/**
+ * @openapi
+ * /admin/suggestions:
+ *   get:
+ *     tags: [Admin]
+ *     summary: Customer suggestion box — list/moderate feedback
+ *     security: [{ bearerAuth: [] }]
+ */
+router.use("/suggestions", suggestionsModerationRouter);
 
 module.exports = router;

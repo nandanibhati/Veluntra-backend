@@ -5,7 +5,7 @@ const { createCouponSchema, updateCouponSchema } = require("./coupons.validation
 const controller = require("./coupons.controller");
 
 const router = Router();
-router.use(requireAuth, requireRole("seller", "admin"));
+router.use(requireAuth, requireRole("seller", "dropshipper", "admin"));
 
 // Admins manage every coupon; sellers only ever see/manage their own store's coupons
 // (gated further by Settings.allowSellerCoupons inside the service). Validating/applying

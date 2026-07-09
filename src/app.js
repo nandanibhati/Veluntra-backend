@@ -32,6 +32,7 @@ const featuredReviewsRoutes = require("./modules/reviews/reviews.featured.routes
 const permissionsRoutes = require("./modules/permissions/permissions.routes");
 const homepageRoutes = require("./modules/homepage/homepage.routes");
 const paymentsRoutes = require("./modules/payments/payments.routes");
+const suggestionsRoutes = require("./modules/suggestions/suggestions.routes");
 
 const app = express();
 
@@ -91,6 +92,7 @@ v1.use("/stats", statsRoutes);
 v1.use("/reviews", featuredReviewsRoutes);
 v1.use("/permissions", permissionsRoutes);
 v1.use("/homepage", homepageRoutes);
+v1.use("/suggestions", suggestionsRoutes);
 
 app.use("/api/v1", v1);
 

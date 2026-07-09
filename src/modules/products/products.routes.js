@@ -66,7 +66,7 @@ router.get("/", validate({ query: listProductsQuerySchema }), controller.list);
 router.post(
   "/",
   requireAuth,
-  requireRole("seller", "admin"),
+  requireRole("seller", "dropshipper", "admin"),
   validate({ body: createProductSchema }),
   controller.create
 );
@@ -91,8 +91,8 @@ router.post(
  *             properties:
  *               file: { type: string, format: binary }
  */
-router.get("/export", requireAuth, requireRole("seller", "admin"), controller.exportCsv);
-router.post("/import", requireAuth, requireRole("seller", "admin"), uploadCsv.single("file"), controller.importCsv);
+router.get("/export", requireAuth, requireRole("seller", "dropshipper", "admin"), controller.exportCsv);
+router.post("/import", requireAuth, requireRole("seller", "dropshipper", "admin"), uploadCsv.single("file"), controller.importCsv);
 
 /**
  * @openapi
@@ -120,21 +120,21 @@ router.post("/import", requireAuth, requireRole("seller", "admin"), uploadCsv.si
 router.post(
   "/bulk/price",
   requireAuth,
-  requireRole("seller", "admin"),
+  requireRole("seller", "dropshipper", "admin"),
   validate({ body: bulkPriceUpdateSchema }),
   controller.bulkUpdatePrice
 );
 router.post(
   "/bulk/stock",
   requireAuth,
-  requireRole("seller", "admin"),
+  requireRole("seller", "dropshipper", "admin"),
   validate({ body: bulkStockUpdateSchema }),
   controller.bulkUpdateStock
 );
 router.post(
   "/bulk/status",
   requireAuth,
-  requireRole("seller", "admin"),
+  requireRole("seller", "dropshipper", "admin"),
   validate({ body: bulkStatusUpdateSchema }),
   controller.bulkUpdateStatus
 );
@@ -149,35 +149,35 @@ router.post(
 router.post(
   "/bulk/feature-flags",
   requireAuth,
-  requireRole("seller", "admin"),
+  requireRole("seller", "dropshipper", "admin"),
   validate({ body: bulkFeatureFlagsUpdateSchema }),
   controller.bulkUpdateFeatureFlags
 );
 router.post(
   "/bulk/delete",
   requireAuth,
-  requireRole("seller", "admin"),
+  requireRole("seller", "dropshipper", "admin"),
   validate({ body: bulkDeleteSchema }),
   controller.bulkDelete
 );
 router.post(
   "/bulk/category",
   requireAuth,
-  requireRole("seller", "admin"),
+  requireRole("seller", "dropshipper", "admin"),
   validate({ body: bulkCategoryUpdateSchema }),
   controller.bulkUpdateCategory
 );
 router.post(
   "/bulk/brand",
   requireAuth,
-  requireRole("seller", "admin"),
+  requireRole("seller", "dropshipper", "admin"),
   validate({ body: bulkBrandUpdateSchema }),
   controller.bulkUpdateBrand
 );
 router.post(
   "/bulk/tags",
   requireAuth,
-  requireRole("seller", "admin"),
+  requireRole("seller", "dropshipper", "admin"),
   validate({ body: bulkTagsUpdateSchema }),
   controller.bulkUpdateTags
 );
@@ -203,11 +203,11 @@ router.get("/:id", controller.getById);
 router.patch(
   "/:id",
   requireAuth,
-  requireRole("seller", "admin"),
+  requireRole("seller", "dropshipper", "admin"),
   validate({ body: updateProductSchema }),
   controller.update
 );
-router.delete("/:id", requireAuth, requireRole("seller", "admin"), controller.remove);
+router.delete("/:id", requireAuth, requireRole("seller", "dropshipper", "admin"), controller.remove);
 
 /**
  * @openapi
@@ -237,17 +237,17 @@ router.delete("/:id", requireAuth, requireRole("seller", "admin"), controller.re
  *     summary: Per-product performance — views, sales, revenue, profit, conversion rate, wishlist/review counts, returns
  *     security: [{ bearerAuth: [] }]
  */
-router.get("/:id/manage", requireAuth, requireRole("seller", "admin"), controller.getByIdForManage);
-router.post("/:id/duplicate", requireAuth, requireRole("seller", "admin"), controller.duplicate);
+router.get("/:id/manage", requireAuth, requireRole("seller", "dropshipper", "admin"), controller.getByIdForManage);
+router.post("/:id/duplicate", requireAuth, requireRole("seller", "dropshipper", "admin"), controller.duplicate);
 router.post(
   "/:id/stock-adjustment",
   requireAuth,
-  requireRole("seller", "admin"),
+  requireRole("seller", "dropshipper", "admin"),
   validate({ body: stockAdjustmentSchema }),
   controller.adjustStock
 );
-router.get("/:id/inventory-history", requireAuth, requireRole("seller", "admin"), controller.inventoryHistory);
-router.get("/:id/analytics", requireAuth, requireRole("seller", "admin"), controller.getAnalytics);
+router.get("/:id/inventory-history", requireAuth, requireRole("seller", "dropshipper", "admin"), controller.inventoryHistory);
+router.get("/:id/analytics", requireAuth, requireRole("seller", "dropshipper", "admin"), controller.getAnalytics);
 
 // Nested: /products/:productId/reviews
 router.use("/:productId/reviews", reviewsRouter);

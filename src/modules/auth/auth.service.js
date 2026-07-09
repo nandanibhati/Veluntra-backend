@@ -62,7 +62,7 @@ async function register({ name, email, password, role }) {
     data: { name, email, passwordHash, role },
   });
 
-  if (role === "seller") {
+  if (role === "seller" || role === "dropshipper") {
     await prisma.store.create({
       data: { name: `${name}'s Store`, ownerId: user.id },
     });

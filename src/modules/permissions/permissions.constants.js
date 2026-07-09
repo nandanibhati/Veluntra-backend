@@ -18,12 +18,27 @@ const PERMISSION_KEYS = [
   "analytics.view",
 ];
 
-const CONFIGURABLE_ROLES = ["admin", "seller", "customer"];
+const CONFIGURABLE_ROLES = ["admin", "seller", "dropshipper", "customer"];
 
 // Sensible out-of-the-box behavior, used whenever no explicit RolePermission row exists.
 const DEFAULT_PERMISSIONS = {
   admin: Object.fromEntries(PERMISSION_KEYS.map((key) => [key, true])),
   seller: {
+    "products.manage": true,
+    "orders.manage": true,
+    "coupons.manage": true,
+    "analytics.view": true,
+    "categories.manage": false,
+    "promotions.manage": false,
+    "customers.manage": false,
+    "sellers.manage": false,
+    "settings.manage": false,
+    "homepage.manage": false,
+    "reviews.moderate": false,
+  },
+  // Mirrors seller for now — dropshippers use the same seller dashboard/permissions until
+  // dropshipper-specific behavior (supplier linking, no stock tracking, etc.) is designed.
+  dropshipper: {
     "products.manage": true,
     "orders.manage": true,
     "coupons.manage": true,

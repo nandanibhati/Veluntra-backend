@@ -47,7 +47,8 @@ async function setUserRole(actorId, userId, role, ipAddress) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw ApiError.notFound("User not found.");
   if (user.role === "superadmin") throw ApiError.forbidden("The Super Admin's role can't be changed here.");
-  if (user.role === "seller") throw ApiError.badRequest("Sellers can't be converted to admin from here — remove their store first if that's really what you want.");
+  if (user.role === "seller" || user.role === "dropshipper")
+    throw ApiError.badRequest("Sellers and dropshippers can't be converted to admin from here — remove their store first if that's really what you want.");
 
   const updated = await prisma.user.update({ where: { id: userId }, data: { role } });
   await logActivity({

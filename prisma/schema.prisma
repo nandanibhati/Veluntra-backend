@@ -12,6 +12,7 @@ datasource db {
 enum Role {
   customer
   seller
+  dropshipper
   admin
   superadmin
 }
@@ -171,6 +172,12 @@ enum ReviewStatus {
   rejected
 }
 
+enum SuggestionStatus {
+  new
+  reviewed
+  archived
+}
+
 // ---------- Models ----------
 
 model User {
@@ -199,6 +206,7 @@ model User {
   wishlistItems      WishlistItem[]
   notifications      Notification[]
   activityLogs       ActivityLog[]
+  suggestions        Suggestion[]
   refreshTokens      RefreshToken[]
   deviceTokens       DeviceToken[]
   passwordResetTokens PasswordResetToken[]
@@ -485,6 +493,21 @@ model Review {
   @@index([productId])
   @@index([status])
   @@map("reviews")
+}
+
+model Suggestion {
+  id        String           @id @default(uuid())
+  name      String?
+  email     String?
+  message   String           @db.Text
+  userId    String?          @map("user_id")
+  status    SuggestionStatus @default(new)
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@map("suggestions")
 }
 
 model Cart {

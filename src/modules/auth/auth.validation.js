@@ -4,7 +4,7 @@ const registerSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.string().trim().toLowerCase().email(),
   password: z.string().min(8).max(128),
-  role: z.enum(["customer", "seller"]).optional().default("customer"),
+  role: z.enum(["customer", "seller", "dropshipper"]).optional().default("customer"),
 });
 
 const loginSchema = z.object({
