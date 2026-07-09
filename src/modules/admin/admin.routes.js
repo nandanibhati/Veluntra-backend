@@ -175,6 +175,16 @@ router.get("/analytics", controller.analytics);
 
 /**
  * @openapi
+ * /admin/dashboard-summary:
+ *   get:
+ *     tags: [Admin]
+ *     summary: Everything the admin Dashboard home page needs in one call — headline stats, orders needing action, low/out-of-stock products, recent orders
+ *     security: [{ bearerAuth: [] }]
+ */
+router.get("/dashboard-summary", controller.dashboardSummary);
+
+/**
+ * @openapi
  * /admin/reviews:
  *   get:
  *     tags: [Admin]

@@ -117,6 +117,11 @@ const analytics = asyncHandler(async (req, res) => {
   });
 });
 
+const dashboardSummary = asyncHandler(async (req, res) => {
+  const data = await service.dashboardSummary();
+  sendSuccess(res, { data });
+});
+
 module.exports = {
   listUsers,
   getCustomerDetail,
@@ -135,4 +140,5 @@ module.exports = {
   listProducts,
   listActivityLogs,
   analytics,
+  dashboardSummary,
 };

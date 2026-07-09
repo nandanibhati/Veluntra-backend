@@ -311,6 +311,57 @@ async function overview() {
   };
 }
 
+/** Powers the admin Dashboard home page — everything an owner needs to see at a glance without
+ * digging through the Orders/Products tabs first: what needs action today, plus the same
+ * headline numbers as overview(). One call instead of the dashboard hitting five endpoints. */
+async function dashboardSummary() {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const [
+    ov,
+    pendingOrders,
+    processingOrders,
+    todayRevenueAgg,
+    todayOrders,
+    lowStockProducts,
+    outOfStockCount,
+    recentOrders,
+  ] = await Promise.all([
+    overview(),
+    prisma.order.count({ where: { status: "pending" } }),
+    prisma.order.count({ where: { status: "processing" } }),
+    prisma.order.aggregate({ where: { placedAt: { gte: todayStart }, status: { not: "cancelled" } }, _sum: { total: true } }),
+    prisma.order.count({ where: { placedAt: { gte: todayStart }, status: { not: "cancelled" } } }),
+    // Prisma's fluent `where` can't compare one column against another (stock <= lowStockThreshold)
+    // directly, so this filters in Node — fine at this scale (published-product count, not the
+    // whole catalog including drafts).
+    prisma.product
+      .findMany({ where: { status: "published" }, select: { id: true, name: true, stock: true, lowStockThreshold: true } })
+      .then((rows) => rows.filter((p) => p.stock > 0 && p.stock <= p.lowStockThreshold).slice(0, 6)),
+    prisma.product.count({ where: { status: "published", stock: 0 } }),
+    prisma.order.findMany({
+      orderBy: { placedAt: "desc" },
+      take: 6,
+      include: { user: { select: { name: true } } },
+    }),
+  ]);
+
+  return {
+    ...ov,
+    pendingOrders,
+    processingOrders,
+    needsAttention: pendingOrders + processingOrders,
+    todayRevenue: Number(todayRevenueAgg._sum.total || 0),
+    todayOrders,
+    lowStockProducts: lowStockProducts.map(toPlain),
+    outOfStockCount,
+    recentOrders: recentOrders.map((o) =>
+      toPlain({ id: o.id, orderNumber: o.orderNumber, customer: o.user.name, total: o.total, status: o.status, placedAt: o.placedAt })
+    ),
+  };
+}
+
 /** `period`: "day" | "week" | "month" — defaults to month. */
 async function revenueTrend(period = "month") {
   const trunc = TRUNC_BY_PERIOD[period] || "month";
@@ -447,6 +498,7 @@ module.exports = {
   listProducts,
   listActivityLogs,
   overview,
+  dashboardSummary,
   revenueTrend,
   ordersByCategory,
   topProducts,
