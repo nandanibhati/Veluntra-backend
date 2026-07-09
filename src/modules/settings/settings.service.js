@@ -141,6 +141,12 @@ async function getPublic() {
     popupBanner: resolvePopupBanner(plain),
     vipTiers: resolveVipTiers(plain),
     stripeEnabled: Boolean(env.stripe.secretKey),
+    // Lets the admin UI (and anyone checking) confirm Cloudinary is actually configured without
+    // needing an authenticated request — mirrors stripeEnabled above. Never leaks the credentials
+    // themselves, just whether all three are present.
+    cloudinaryEnabled: Boolean(
+      plain.cloudinaryConfig?.cloudName && plain.cloudinaryConfig?.apiKey && plain.cloudinaryConfig?.apiSecret
+    ),
   };
 }
 
