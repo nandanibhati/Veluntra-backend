@@ -17,7 +17,7 @@
  */
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
-const { seedSampleCatalog, backfillCatalogImages } = require("./seedCatalog");
+const { seedSampleCatalog } = require("./seedCatalog");
 
 const prisma = new PrismaClient();
 
@@ -81,47 +81,41 @@ async function main() {
   }
 
   // ---- Starter catalog (placeholder content so the storefront isn't empty) ----
-  // Runs automatically, exactly once: only when there are zero products in the database.
-  // Every category, brand, and product is fully editable/replaceable from the Admin/Seller
-  // dashboard afterwards — this is a starting catalog, not real inventory.
-  const productCount = await prisma.product.count();
-  if (productCount === 0) {
-    const owner = await prisma.user.findFirst({
-      where: { role: { in: ["superadmin", "admin"] } },
-      orderBy: { createdAt: "asc" },
-    });
-    if (!owner) {
-      console.log("  Skipping starter catalog — no admin/superadmin account exists yet to own the store.");
-    } else {
-      let store = await prisma.store.findUnique({ where: { ownerId: owner.id } });
-      if (!store) {
-        const anyStore = await prisma.store.findFirst();
-        store =
-          anyStore ||
-          (await prisma.store.create({
-            data: { name: process.env.STORE_NAME || "My Store", ownerId: owner.id, status: "approved" },
-          }));
-      }
-      const result = await seedSampleCatalog(prisma, { storeId: store.id });
+  // Runs on EVERY boot, not just when the database is empty — every step inside
+  // seedSampleCatalog is individually idempotent (upsert / findFirst-then-create per item),
+  // so re-running it only ever creates whatever is still missing: a category/product added to
+  // this file after the store already had products, a photo added to a category that didn't
+  // have one yet, etc. It must NOT be gated behind "productCount === 0", or any catalog change
+  // made after the very first deploy would silently never reach production again. Every
+  // category, brand, and product is fully editable/replaceable from the Admin/Seller dashboard
+  // afterwards — this is a starting catalog, not real inventory.
+  const owner = await prisma.user.findFirst({
+    where: { role: { in: ["superadmin", "admin"] } },
+    orderBy: { createdAt: "asc" },
+  });
+  if (!owner) {
+    console.log("  Skipping starter catalog — no admin/superadmin account exists yet to own the store.");
+  } else {
+    let store = await prisma.store.findUnique({ where: { ownerId: owner.id } });
+    if (!store) {
+      const anyStore = await prisma.store.findFirst();
+      store =
+        anyStore ||
+        (await prisma.store.create({
+          data: { name: process.env.STORE_NAME || "My Store", ownerId: owner.id, status: "approved" },
+        }));
+    }
+    const result = await seedSampleCatalog(prisma, { storeId: store.id });
+    if (result.categoriesCreated || result.brandsCreated || result.productsCreated) {
       console.log(
         `  Starter catalog: ${result.categoriesCreated} categories, ${result.brandsCreated} brands, ${result.productsCreated} products created.`
       );
     }
-  } else {
-    // The starter catalog already exists (seedSampleCatalog only ever runs once, above) — but a
-    // row created on an earlier boot can still be missing a photo if it was created before a
-    // photo feature existed. Unlike seedSampleCatalog, this runs on every boot so a fix like
-    // that reaches production the moment it deploys, not only on a from-scratch database.
-    const backfill = await backfillCatalogImages(prisma);
-    if (backfill.categoriesBackfilled || backfill.productsBackfilled) {
-      console.log(
-        `  Backfilled photos: ${backfill.categoriesBackfilled} categories, ${backfill.productsBackfilled} products.`
-      );
+    if (result.categoriesBackfilled || result.productsBackfilled) {
+      console.log(`  Backfilled photos: ${result.categoriesBackfilled} categories, ${result.productsBackfilled} products.`);
     }
-    if (backfill.categoriesUpgraded || backfill.productsUpgraded) {
-      console.log(
-        `  Upgraded photos: ${backfill.categoriesUpgraded} categories, ${backfill.productsUpgraded} products (random -> curated).`
-      );
+    if (result.categoriesUpgraded || result.productsUpgraded) {
+      console.log(`  Upgraded photos: ${result.categoriesUpgraded} categories, ${result.productsUpgraded} products (random -> curated).`);
     }
   }
 

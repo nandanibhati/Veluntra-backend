@@ -237,7 +237,9 @@ async function backfillCatalogImages(prisma) {
 async function seedSampleCatalog(prisma, { storeId }) {
   const FEATURED_CATEGORIES = new Set(["Audio", "Smart Home", "Computing", "Home & Kitchen"]);
   const categoryByName = {};
+  let categoriesCreated = 0;
   for (const name of CATEGORIES) {
+    const existing = await prisma.category.findUnique({ where: { slug: slugify(name) } });
     const cat = await prisma.category.upsert({
       where: { slug: slugify(name) },
       update: {},
@@ -248,17 +250,21 @@ async function seedSampleCatalog(prisma, { storeId }) {
         imageUrl: categoryImageUrl(name),
       },
     });
+    if (!existing) categoriesCreated += 1;
     categoryByName[name] = cat;
   }
 
   const FEATURED_BRANDS = new Set(["Veluntra", "Nexora", "Meridian"]);
   const brandByName = {};
+  let brandsCreated = 0;
   for (const name of BRANDS) {
+    const existing = await prisma.brand.findUnique({ where: { slug: slugify(name) } });
     const brand = await prisma.brand.upsert({
       where: { slug: slugify(name) },
       update: {},
       create: { name, slug: slugify(name), featured: FEATURED_BRANDS.has(name) },
     });
+    if (!existing) brandsCreated += 1;
     brandByName[name] = brand;
   }
 
@@ -312,7 +318,7 @@ async function seedSampleCatalog(prisma, { storeId }) {
     productsCreated += 1;
   }
 
-  await backfillCatalogImages(prisma);
+  const backfill = await backfillCatalogImages(prisma);
 
   const existingPromo = await prisma.promotion.findFirst({ where: { name: "Launch Week Flash Sale" } });
   if (!existingPromo && categoryByName["Audio"]) {
@@ -337,7 +343,7 @@ async function seedSampleCatalog(prisma, { storeId }) {
     }
   }
 
-  return { categoriesCreated: CATEGORIES.length, brandsCreated: BRANDS.length, productsCreated };
+  return { categoriesCreated, brandsCreated, productsCreated, ...backfill };
 }
 
 module.exports = { seedSampleCatalog, backfillCatalogImages, slugify, daysFromNow, CATEGORIES, BRANDS, PRODUCTS };
