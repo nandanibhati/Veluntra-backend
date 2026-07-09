@@ -171,6 +171,16 @@ const HOMEPAGE_SECTIONS = [
   "testimonials",
 ];
 
+// Real starter content for the Hero Banner, not an empty section — an admin can replace any of
+// this from Admin > Homepage CMS at any time (headline, subheadline, CTA, background image).
+const HERO_BANNER_CONFIG = {
+  headline: "Upgrade Your Everyday Tech",
+  subheadline: "Quality electronics and everyday essentials, with fast shipping and easy 30-day returns.",
+  ctaText: "Shop Now",
+  ctaLink: "/shop",
+  backgroundImage: "https://images.unsplash.com/photo-1750055129957-6e757ce881dc?w=1600&h=700&fit=crop&q=80",
+};
+
 /** Backfills missing photos on the starter catalog's own categories/products — the ones
  * created by an earlier boot, before deterministic photos were added to this seed. Scoped to
  * only this seed's own known names/slugs, so it never touches a real merchant's category or
@@ -394,7 +404,8 @@ async function seedSampleCatalog(prisma, { storeId }) {
   let heroBannerCreated = false;
   if (sectionCount === 0) {
     for (const [position, type] of HOMEPAGE_SECTIONS.entries()) {
-      await prisma.homepageSection.create({ data: { type, position, enabled: true } });
+      const config = type === "hero_banner" ? HERO_BANNER_CONFIG : undefined;
+      await prisma.homepageSection.create({ data: { type, position, enabled: true, config } });
     }
   } else {
     // hero_banner was added to HOMEPAGE_SECTIONS after some stores already had their sections
@@ -405,8 +416,13 @@ async function seedSampleCatalog(prisma, { storeId }) {
     if (!hasHero) {
       const lowestPosition = await prisma.homepageSection.aggregate({ _min: { position: true } });
       await prisma.homepageSection.create({
-        data: { type: "hero_banner", position: (lowestPosition._min.position ?? 0) - 1, enabled: true },
+        data: { type: "hero_banner", position: (lowestPosition._min.position ?? 0) - 1, enabled: true, config: HERO_BANNER_CONFIG },
       });
+      heroBannerCreated = true;
+    } else if (!hasHero.config) {
+      // The row exists but was created before this default content did — give it real starter
+      // content instead of leaving it empty (never overwrites a config an admin has since set).
+      await prisma.homepageSection.update({ where: { id: hasHero.id }, data: { config: HERO_BANNER_CONFIG } });
       heroBannerCreated = true;
     }
   }
