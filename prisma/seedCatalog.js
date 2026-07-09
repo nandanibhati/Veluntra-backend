@@ -163,6 +163,7 @@ const HOMEPAGE_SECTIONS = [
   "hero_banner",
   "categories",
   "featured_products",
+  "ad_banner",
   "trending_products",
   "flash_sale",
   "best_sellers",
@@ -179,6 +180,13 @@ const HERO_BANNER_CONFIG = {
   ctaText: "Shop Now",
   ctaLink: "/shop",
   backgroundImage: "https://images.unsplash.com/photo-1750055129957-6e757ce881dc?w=1600&h=700&fit=crop&q=80",
+};
+
+// Starter content for the mid-page promotional banner (sits between "Handpicked For You" and
+// "New Arrivals") — an admin can swap the image/link from Admin > Homepage CMS at any time.
+const AD_BANNER_CONFIG = {
+  imageUrl: "https://images.unsplash.com/photo-1757168120889-4317e57a4849?w=1600&h=360&fit=crop&q=80",
+  link: "/shop",
 };
 
 /** Backfills missing photos on the starter catalog's own categories/products — the ones
@@ -402,9 +410,10 @@ async function seedSampleCatalog(prisma, { storeId }) {
 
   const sectionCount = await prisma.homepageSection.count();
   let heroBannerCreated = false;
+  let adBannerCreated = false;
   if (sectionCount === 0) {
     for (const [position, type] of HOMEPAGE_SECTIONS.entries()) {
-      const config = type === "hero_banner" ? HERO_BANNER_CONFIG : undefined;
+      const config = type === "hero_banner" ? HERO_BANNER_CONFIG : type === "ad_banner" ? AD_BANNER_CONFIG : undefined;
       await prisma.homepageSection.create({ data: { type, position, enabled: true, config } });
     }
   } else {
@@ -425,9 +434,27 @@ async function seedSampleCatalog(prisma, { storeId }) {
       await prisma.homepageSection.update({ where: { id: hasHero.id }, data: { config: HERO_BANNER_CONFIG } });
       heroBannerCreated = true;
     }
+
+    // Same idea for ad_banner, added later still — slot it in right before trending_products
+    // (i.e. between "Handpicked For You" and "New Arrivals") by shifting every section from
+    // that position onward down by one. Naturally a no-op once the row exists.
+    const hasAdBanner = await prisma.homepageSection.findFirst({ where: { type: "ad_banner" } });
+    if (!hasAdBanner) {
+      const trending = await prisma.homepageSection.findFirst({ where: { type: "trending_products" } });
+      if (trending) {
+        await prisma.homepageSection.updateMany({
+          where: { position: { gte: trending.position } },
+          data: { position: { increment: 1 } },
+        });
+        await prisma.homepageSection.create({
+          data: { type: "ad_banner", position: trending.position, enabled: true, config: AD_BANNER_CONFIG },
+        });
+        adBannerCreated = true;
+      }
+    }
   }
 
-  return { categoriesCreated, brandsCreated, productsCreated, heroBannerCreated, ...backfill };
+  return { categoriesCreated, brandsCreated, productsCreated, heroBannerCreated, adBannerCreated, ...backfill };
 }
 
 module.exports = { seedSampleCatalog, backfillCatalogImages, rehostCuratedImages, slugify, daysFromNow, CATEGORIES, BRANDS, PRODUCTS };

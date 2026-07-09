@@ -120,6 +120,9 @@ async function main() {
     if (result.heroBannerCreated) {
       console.log("  Added a Hero Banner section — editable from Admin > Homepage CMS.");
     }
+    if (result.adBannerCreated) {
+      console.log("  Added an Ad Banner section (between Handpicked For You and New Arrivals) — editable from Admin > Homepage CMS.");
+    }
   }
 
   // Once Cloudinary is configured (Settings > Image storage), move the curated seed photos off
