@@ -52,6 +52,22 @@ router.get("/:id/invoice", requireAuth, validate({ params: idParamSchema() }), c
 
 /**
  * @openapi
+ * /orders/{id}/packing-slip:
+ *   get:
+ *     tags: [Orders]
+ *     summary: Download a PDF packing slip for an order (no prices — internal fulfillment document)
+ *     security: [{ bearerAuth: [] }]
+ * /orders/{id}/shipping-label:
+ *   get:
+ *     tags: [Orders]
+ *     summary: Download a PDF shipping label for an order
+ *     security: [{ bearerAuth: [] }]
+ */
+router.get("/:id/packing-slip", requireAuth, validate({ params: idParamSchema() }), controller.packingSlip);
+router.get("/:id/shipping-label", requireAuth, validate({ params: idParamSchema() }), controller.shippingLabel);
+
+/**
+ * @openapi
  * /orders/{id}/cancel:
  *   post:
  *     tags: [Orders]

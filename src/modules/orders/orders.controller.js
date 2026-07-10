@@ -2,6 +2,8 @@ const asyncHandler = require("../../utils/asyncHandler");
 const { sendSuccess, paginationMeta } = require("../../utils/apiResponse");
 const ApiError = require("../../utils/ApiError");
 const { streamInvoice } = require("../../utils/invoice");
+const { streamPackingSlip } = require("../../utils/packingSlip");
+const { streamShippingLabel } = require("../../utils/shippingLabel");
 const prisma = require("../../config/db");
 const settingsService = require("../settings/settings.service");
 const authService = require("../auth/auth.service");
@@ -91,6 +93,20 @@ const invoice = asyncHandler(async (req, res) => {
   streamInvoice(res, { order, settings });
 });
 
+const packingSlip = asyncHandler(async (req, res) => {
+  const order = await service.getByIdRaw(req.params.id);
+  const isAdmin = req.user.role === "admin" || req.user.role === "superadmin";
+  if (!isAdmin && order.userId !== req.user.id) throw ApiError.forbidden();
+  streamPackingSlip(res, { order });
+});
+
+const shippingLabel = asyncHandler(async (req, res) => {
+  const order = await service.getByIdRaw(req.params.id);
+  const isAdmin = req.user.role === "admin" || req.user.role === "superadmin";
+  if (!isAdmin && order.userId !== req.user.id) throw ApiError.forbidden();
+  streamShippingLabel(res, { order });
+});
+
 const cancel = asyncHandler(async (req, res) => {
   const order = await service.requestCancellation(req.user.id, req.params.id, { reason: req.body.reason, ipAddress: req.ip });
   sendSuccess(res, { data: order });
@@ -106,4 +122,4 @@ const requestExchange = asyncHandler(async (req, res) => {
   sendSuccess(res, { data: order });
 });
 
-module.exports = { create, list, getById, invoice, cancel, requestReturn, requestExchange };
+module.exports = { create, list, getById, invoice, packingSlip, shippingLabel, cancel, requestReturn, requestExchange };

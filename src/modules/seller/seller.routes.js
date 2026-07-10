@@ -59,6 +59,28 @@ router.patch(
 
 /**
  * @openapi
+ * /seller/orders/{id}/invoice:
+ *   get:
+ *     tags: [Seller]
+ *     summary: Download the PDF invoice for one of this seller's orders
+ *     security: [{ bearerAuth: [] }]
+ * /seller/orders/{id}/packing-slip:
+ *   get:
+ *     tags: [Seller]
+ *     summary: Download the PDF packing slip for one of this seller's orders
+ *     security: [{ bearerAuth: [] }]
+ * /seller/orders/{id}/shipping-label:
+ *   get:
+ *     tags: [Seller]
+ *     summary: Download the PDF shipping label for one of this seller's orders
+ *     security: [{ bearerAuth: [] }]
+ */
+router.get("/orders/:id/invoice", validate({ params: idParamSchema() }), controller.orderInvoice);
+router.get("/orders/:id/packing-slip", validate({ params: idParamSchema() }), controller.orderPackingSlip);
+router.get("/orders/:id/shipping-label", validate({ params: idParamSchema() }), controller.orderShippingLabel);
+
+/**
+ * @openapi
  * /seller/customers:
  *   get:
  *     tags: [Seller]

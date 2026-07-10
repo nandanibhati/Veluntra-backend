@@ -1,6 +1,8 @@
 const asyncHandler = require("../../utils/asyncHandler");
 const { sendSuccess, paginationMeta } = require("../../utils/apiResponse");
 const { streamInvoice } = require("../../utils/invoice");
+const { streamPackingSlip } = require("../../utils/packingSlip");
+const { streamShippingLabel } = require("../../utils/shippingLabel");
 const ApiError = require("../../utils/ApiError");
 const prisma = require("../../config/db");
 const service = require("./admin.service");
@@ -90,6 +92,16 @@ const orderInvoice = asyncHandler(async (req, res) => {
   streamInvoice(res, { order, settings });
 });
 
+const orderPackingSlip = asyncHandler(async (req, res) => {
+  const order = await ordersService.getByIdRaw(req.params.id);
+  streamPackingSlip(res, { order });
+});
+
+const orderShippingLabel = asyncHandler(async (req, res) => {
+  const order = await ordersService.getByIdRaw(req.params.id);
+  streamShippingLabel(res, { order });
+});
+
 const listProducts = asyncHandler(async (req, res) => {
   const { items, page, limit, total } = await service.listProducts(req.query);
   sendSuccess(res, { data: items, meta: paginationMeta({ page, limit, total }) });
@@ -162,6 +174,8 @@ module.exports = {
   updateOrderStatus,
   assignSeller,
   orderInvoice,
+  orderPackingSlip,
+  orderShippingLabel,
   listProducts,
   listActivityLogs,
   analytics,

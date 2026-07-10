@@ -163,6 +163,8 @@ router.patch(
  *     security: [{ bearerAuth: [] }]
  */
 router.get("/orders/:id/invoice", validate({ params: idParamSchema() }), controller.orderInvoice);
+router.get("/orders/:id/packing-slip", validate({ params: idParamSchema() }), controller.orderPackingSlip);
+router.get("/orders/:id/shipping-label", validate({ params: idParamSchema() }), controller.orderShippingLabel);
 
 /**
  * @openapi

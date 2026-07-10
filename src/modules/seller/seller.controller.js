@@ -1,6 +1,11 @@
 const asyncHandler = require("../../utils/asyncHandler");
 const { sendSuccess, paginationMeta } = require("../../utils/apiResponse");
 const { toPlain } = require("../../utils/serialize");
+const ApiError = require("../../utils/ApiError");
+const { streamInvoice } = require("../../utils/invoice");
+const { streamPackingSlip } = require("../../utils/packingSlip");
+const { streamShippingLabel } = require("../../utils/shippingLabel");
+const settingsService = require("../settings/settings.service");
 const service = require("./seller.service");
 const ordersService = require("../orders/orders.service");
 
@@ -58,4 +63,38 @@ const updateStoreBranding = asyncHandler(async (req, res) => {
   sendSuccess(res, { data: updated });
 });
 
-module.exports = { overview, listProducts, listOrders, updateOrderStatus, listCustomers, getStore, updateStoreBranding };
+async function ownOrderOrForbid(req) {
+  const store = await service.getStoreForOwner(req.user.id, req.user.role);
+  const order = await ordersService.getByIdRaw(req.params.id);
+  if (order.storeId !== store.id) throw ApiError.forbidden("This order does not belong to your store.");
+  return order;
+}
+
+const orderInvoice = asyncHandler(async (req, res) => {
+  const order = await ownOrderOrForbid(req);
+  const settings = await settingsService.getOrCreate();
+  streamInvoice(res, { order, settings });
+});
+
+const orderPackingSlip = asyncHandler(async (req, res) => {
+  const order = await ownOrderOrForbid(req);
+  streamPackingSlip(res, { order });
+});
+
+const orderShippingLabel = asyncHandler(async (req, res) => {
+  const order = await ownOrderOrForbid(req);
+  streamShippingLabel(res, { order });
+});
+
+module.exports = {
+  overview,
+  listProducts,
+  listOrders,
+  updateOrderStatus,
+  listCustomers,
+  getStore,
+  updateStoreBranding,
+  orderInvoice,
+  orderPackingSlip,
+  orderShippingLabel,
+};
