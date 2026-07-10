@@ -420,6 +420,7 @@ model Product {
   @@index([storeId])
   @@index([status])
   @@index([storeId, status])
+  @@index([createdAt])
   @@map("products")
 }
 
@@ -667,6 +668,7 @@ model Order {
   @@index([status])
   @@index([paymentStatus])
   @@index([storeId, status])
+  @@index([placedAt])
   @@map("orders")
 }
 
@@ -685,6 +687,7 @@ model OrderItem {
   variant ProductVariant? @relation(fields: [variantId], references: [id])
 
   @@index([orderId])
+  @@index([productId])
   @@map("order_items")
 }
 
@@ -705,6 +708,7 @@ model ActivityLog {
 
   @@index([actorId])
   @@index([scope])
+  @@index([createdAt])
   @@map("activity_logs")
 }
 
