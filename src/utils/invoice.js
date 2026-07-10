@@ -9,7 +9,11 @@ function streamInvoice(res, { order, settings }) {
   res.setHeader("Content-Disposition", `attachment; filename="invoice-${order.orderNumber}.pdf"`);
   doc.pipe(res);
 
-  doc.fontSize(20).text(settings.storeName || "Veluntra", { align: "left" });
+  // Seller-branded, not platform-branded — the buyer should only ever see the store they
+  // actually bought from. Falls back to platform Settings only if the store has no branding
+  // set yet (Store.name is required, but the rest is optional until a seller fills it in).
+  const brand = order.store || {};
+  doc.fontSize(20).text(brand.name || settings.storeName || "Veluntra", { align: "left" });
   doc.fontSize(10).fillColor("#666").text("Invoice", { align: "left" });
   doc.moveDown(1.5);
 
@@ -17,6 +21,18 @@ function streamInvoice(res, { order, settings }) {
   doc.text(`Date: ${new Date(order.placedAt).toLocaleDateString()}`);
   doc.text(`Status: ${order.status}`);
   doc.moveDown();
+
+  const brandAddressLines = [brand.addressLine1, brand.addressLine2, [brand.city, brand.state, brand.postalCode].filter(Boolean).join(", "), brand.country]
+    .filter(Boolean);
+  if (brand.name || brandAddressLines.length || brand.contactEmail || brand.contactPhone) {
+    doc.font("Helvetica-Bold").text("Sold by:");
+    doc.font("Helvetica");
+    if (brand.name) doc.text(brand.name);
+    for (const line of brandAddressLines) doc.text(line);
+    if (brand.contactEmail) doc.text(brand.contactEmail);
+    if (brand.contactPhone) doc.text(brand.contactPhone);
+    doc.moveDown();
+  }
 
   if (order.shippingAddress) {
     const a = order.shippingAddress;

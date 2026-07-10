@@ -18,6 +18,7 @@ const ORDER_INCLUDE = {
   shippingAddress: true,
   shippingMethod: true,
   coupon: true,
+  store: true,
 };
 
 /**
