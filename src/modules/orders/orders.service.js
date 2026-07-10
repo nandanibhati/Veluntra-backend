@@ -7,8 +7,11 @@ const settingsService = require("../settings/settings.service");
 const promotionsService = require("../promotions/promotions.service");
 const notificationsService = require("../notifications/notifications.service");
 const { logActivity } = require("../../utils/activityLog");
-const { logInventoryChange } = require("../../utils/inventoryLog");
 const { calculateTotals, pickBestPromotion } = require("../../utils/pricing");
+const fulfillmentService = require("../fulfillment/fulfillment.service");
+const inventoryService = require("../inventory/inventory.service");
+const { isRestockingTransition, restockTypeFor, isCancellableByCustomer } = require("./orderStateMachine");
+const { resolveShipmentProvider } = require("../shipping/shipmentProviders");
 
 const ORDER_INCLUDE = {
   items: true,
@@ -16,10 +19,6 @@ const ORDER_INCLUDE = {
   shippingMethod: true,
   coupon: true,
 };
-
-const RESTOCKING_STATUSES = new Set(["cancelled", "returned", "exchanged"]);
-const RESTOCK_TYPE_BY_STATUS = { cancelled: "cancel_restore", returned: "return_restore", exchanged: "return_restore" };
-const CANCELLABLE_STATUSES = new Set(["pending", "processing"]);
 
 /**
  * Creates one Order per store represented in the cart (a single checkout
@@ -173,53 +172,17 @@ async function createFromCart(userId, { shippingAddressId, shippingMethodId, pay
       });
 
       for (const { item, product, variant } of group.items) {
-        // Atomic, conditional decrement — the WHERE clause's stock check is evaluated by
-        // Postgres at UPDATE time under row-level lock, not from the possibly-stale value read
-        // earlier in this request. This is what actually prevents overselling: two concurrent
-        // checkouts for the last unit can no longer both pass a stale "stock >= quantity" check
-        // and both commit — only one updateMany can win the row.
-        if (variant) {
-          const result = await tx.productVariant.updateMany({
-            where: { id: variant.id, stock: { gte: item.quantity } },
-            data: { stock: { decrement: item.quantity } },
-          });
-          if (result.count === 0) {
-            throw ApiError.badRequest(`"${product.name}" no longer has enough stock — please update your cart.`);
-          }
-          const updated = await tx.productVariant.findUnique({ where: { id: variant.id }, select: { stock: true } });
-          await logInventoryChange(
-            {
-              productId: product.id,
-              variantId: variant.id,
-              type: "order_deduct",
-              quantityBefore: updated.stock + item.quantity,
-              quantityAfter: updated.stock,
-              actorId: userId,
-              orderId: order.id,
-            },
-            tx
-          );
-        } else {
-          const result = await tx.product.updateMany({
-            where: { id: product.id, stock: { gte: item.quantity } },
-            data: { stock: { decrement: item.quantity } },
-          });
-          if (result.count === 0) {
-            throw ApiError.badRequest(`"${product.name}" no longer has enough stock — please update your cart.`);
-          }
-          const updated = await tx.product.findUnique({ where: { id: product.id }, select: { stock: true } });
-          await logInventoryChange(
-            {
-              productId: product.id,
-              type: "order_deduct",
-              quantityBefore: updated.stock + item.quantity,
-              quantityAfter: updated.stock,
-              actorId: userId,
-              orderId: order.id,
-            },
-            tx
-          );
-        }
+        // Fulfilled from the owning store's own stock — the only fulfillment source that exists
+        // today (see fulfillment.service.js for the seam a future warehouse source plugs into).
+        await fulfillmentService.fulfillOrderItem(tx, {
+          source: "seller_stock",
+          productId: product.id,
+          variantId: variant?.id,
+          quantity: item.quantity,
+          productName: product.name,
+          actorId: userId,
+          orderId: order.id,
+        });
       }
 
       created.push(order);
@@ -307,7 +270,7 @@ async function updateStatus(id, data, { storeId, isAdmin, actorId, ipAddress }) 
   if (!order) throw ApiError.notFound("Order not found.");
   if (!isAdmin && order.storeId !== storeId) throw ApiError.forbidden("This order does not belong to your store.");
 
-  const isRestocking = data.status && RESTOCKING_STATUSES.has(data.status) && !RESTOCKING_STATUSES.has(order.status);
+  const isRestocking = Boolean(data.status && isRestockingTransition(order.status, data.status));
   const finalData = { ...data };
   if (isRestocking && data.status === "cancelled" && order.paymentStatus === "paid" && !data.paymentStatus) {
     finalData.paymentStatus = "refunded";
@@ -316,45 +279,33 @@ async function updateStatus(id, data, { storeId, isAdmin, actorId, ipAddress }) 
   if (data.status === "delivered" && order.status !== "delivered") finalData.deliveredAt = new Date();
   if (data.status === "cancelled" && order.status !== "cancelled") finalData.cancelledAt = new Date();
 
+  // Tracking fields are routed through the shipment-provider seam instead of being set as raw
+  // pass-through data — today the only provider is "manual" (admin/seller-entered fields, passed
+  // straight back through), but this is where a real carrier integration plugs in later.
+  if (data.trackingCarrier !== undefined || data.trackingNumber !== undefined || data.trackingUrl !== undefined) {
+    const trackingUpdate = await resolveShipmentProvider(order).updateTracking(order, {
+      trackingCarrier: data.trackingCarrier,
+      trackingNumber: data.trackingNumber,
+      trackingUrl: data.trackingUrl,
+    });
+    Object.assign(finalData, trackingUpdate);
+  }
+
   const updated = await prisma.$transaction(async (tx) => {
     const next = await tx.order.update({ where: { id }, data: finalData, include: ORDER_INCLUDE });
 
     // Inventory automation: restock when an order is cancelled, returned, or exchanged.
     if (isRestocking) {
-      const type = RESTOCK_TYPE_BY_STATUS[data.status];
-      const variantItems = order.items.filter((i) => i.variantId);
-      const plainItems = order.items.filter((i) => !i.variantId);
-
-      const [variantRows, productRows] = await Promise.all([
-        variantItems.length
-          ? tx.productVariant.findMany({ where: { id: { in: variantItems.map((i) => i.variantId) } } })
-          : Promise.resolve([]),
-        plainItems.length
-          ? tx.product.findMany({ where: { id: { in: plainItems.map((i) => i.productId) } } })
-          : Promise.resolve([]),
-      ]);
-      const variantById = Object.fromEntries(variantRows.map((v) => [v.id, v]));
-      const productByIdForRestock = Object.fromEntries(productRows.map((p) => [p.id, p]));
-
-      for (const item of variantItems) {
-        const before = variantById[item.variantId];
-        if (!before) continue;
-        const quantityAfter = before.stock + item.quantity;
-        await tx.productVariant.update({ where: { id: item.variantId }, data: { stock: quantityAfter } });
-        await logInventoryChange(
-          { productId: item.productId, variantId: item.variantId, type, quantityBefore: before.stock, quantityAfter, actorId, orderId: id },
-          tx
-        );
-      }
-      for (const item of plainItems) {
-        const before = productByIdForRestock[item.productId];
-        if (!before) continue;
-        const quantityAfter = before.stock + item.quantity;
-        await tx.product.update({ where: { id: item.productId }, data: { stock: quantityAfter } });
-        await logInventoryChange(
-          { productId: item.productId, type, quantityBefore: before.stock, quantityAfter, actorId, orderId: id },
-          tx
-        );
+      const type = restockTypeFor(data.status);
+      for (const item of order.items) {
+        await inventoryService.restoreStock(tx, {
+          productId: item.productId,
+          variantId: item.variantId,
+          quantity: item.quantity,
+          type,
+          actorId,
+          orderId: id,
+        });
       }
     }
 
@@ -428,7 +379,7 @@ async function updateStatus(id, data, { storeId, isAdmin, actorId, ipAddress }) 
 async function requestCancellation(userId, orderId, { reason, ipAddress }) {
   const order = await prisma.order.findUnique({ where: { id: orderId } });
   if (!order || order.userId !== userId) throw ApiError.notFound("Order not found.");
-  if (!CANCELLABLE_STATUSES.has(order.status)) {
+  if (!isCancellableByCustomer(order.status)) {
     throw ApiError.badRequest("This order can no longer be cancelled.");
   }
   const settings = await settingsService.getOrCreate();
