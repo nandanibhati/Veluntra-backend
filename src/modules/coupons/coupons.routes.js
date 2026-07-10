@@ -2,6 +2,7 @@ const { Router } = require("express");
 const validate = require("../../middleware/validate");
 const { requireAuth, requireRole } = require("../../middleware/auth");
 const { createCouponSchema, updateCouponSchema } = require("./coupons.validation");
+const { idParamSchema } = require("../../utils/commonSchemas");
 const controller = require("./coupons.controller");
 
 const router = Router();
@@ -38,7 +39,7 @@ router.post("/", validate({ body: createCouponSchema }), controller.create);
  *     summary: Delete a coupon (admin — any; seller — only their own)
  *     security: [{ bearerAuth: [] }]
  */
-router.patch("/:id", validate({ body: updateCouponSchema }), controller.update);
-router.delete("/:id", controller.remove);
+router.patch("/:id", validate({ params: idParamSchema(), body: updateCouponSchema }), controller.update);
+router.delete("/:id", validate({ params: idParamSchema() }), controller.remove);
 
 module.exports = router;

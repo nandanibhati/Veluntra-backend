@@ -2,6 +2,7 @@ const { Router } = require("express");
 const validate = require("../../middleware/validate");
 const { requireAuth, requireRole } = require("../../middleware/auth");
 const { uploadCsv } = require("../../middleware/upload");
+const { idParamSchema } = require("../../utils/commonSchemas");
 const {
   createProductSchema,
   updateProductSchema,
@@ -199,15 +200,15 @@ router.post(
  *     summary: Delete a product (owning seller or admin)
  *     security: [{ bearerAuth: [] }]
  */
-router.get("/:id", controller.getById);
+router.get("/:id", validate({ params: idParamSchema() }), controller.getById);
 router.patch(
   "/:id",
   requireAuth,
   requireRole("seller", "dropshipper", "admin"),
-  validate({ body: updateProductSchema }),
+  validate({ params: idParamSchema(), body: updateProductSchema }),
   controller.update
 );
-router.delete("/:id", requireAuth, requireRole("seller", "dropshipper", "admin"), controller.remove);
+router.delete("/:id", requireAuth, requireRole("seller", "dropshipper", "admin"), validate({ params: idParamSchema() }), controller.remove);
 
 /**
  * @openapi
@@ -237,17 +238,41 @@ router.delete("/:id", requireAuth, requireRole("seller", "dropshipper", "admin")
  *     summary: Per-product performance — views, sales, revenue, profit, conversion rate, wishlist/review counts, returns
  *     security: [{ bearerAuth: [] }]
  */
-router.get("/:id/manage", requireAuth, requireRole("seller", "dropshipper", "admin"), controller.getByIdForManage);
-router.post("/:id/duplicate", requireAuth, requireRole("seller", "dropshipper", "admin"), controller.duplicate);
+router.get(
+  "/:id/manage",
+  requireAuth,
+  requireRole("seller", "dropshipper", "admin"),
+  validate({ params: idParamSchema() }),
+  controller.getByIdForManage
+);
+router.post(
+  "/:id/duplicate",
+  requireAuth,
+  requireRole("seller", "dropshipper", "admin"),
+  validate({ params: idParamSchema() }),
+  controller.duplicate
+);
 router.post(
   "/:id/stock-adjustment",
   requireAuth,
   requireRole("seller", "dropshipper", "admin"),
-  validate({ body: stockAdjustmentSchema }),
+  validate({ params: idParamSchema(), body: stockAdjustmentSchema }),
   controller.adjustStock
 );
-router.get("/:id/inventory-history", requireAuth, requireRole("seller", "dropshipper", "admin"), controller.inventoryHistory);
-router.get("/:id/analytics", requireAuth, requireRole("seller", "dropshipper", "admin"), controller.getAnalytics);
+router.get(
+  "/:id/inventory-history",
+  requireAuth,
+  requireRole("seller", "dropshipper", "admin"),
+  validate({ params: idParamSchema() }),
+  controller.inventoryHistory
+);
+router.get(
+  "/:id/analytics",
+  requireAuth,
+  requireRole("seller", "dropshipper", "admin"),
+  validate({ params: idParamSchema() }),
+  controller.getAnalytics
+);
 
 // Nested: /products/:productId/reviews
 router.use("/:productId/reviews", reviewsRouter);

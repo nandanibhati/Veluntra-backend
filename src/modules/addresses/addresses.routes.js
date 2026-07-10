@@ -2,6 +2,7 @@ const { Router } = require("express");
 const validate = require("../../middleware/validate");
 const { requireAuth } = require("../../middleware/auth");
 const { addressSchema, updateAddressSchema } = require("./addresses.validation");
+const { idParamSchema } = require("../../utils/commonSchemas");
 const controller = require("./addresses.controller");
 
 const router = Router();
@@ -34,7 +35,7 @@ router.post("/", validate({ body: addressSchema }), controller.create);
  *     summary: Delete an address
  *     security: [{ bearerAuth: [] }]
  */
-router.patch("/:id", validate({ body: updateAddressSchema }), controller.update);
-router.delete("/:id", controller.remove);
+router.patch("/:id", validate({ params: idParamSchema(), body: updateAddressSchema }), controller.update);
+router.delete("/:id", validate({ params: idParamSchema() }), controller.remove);
 
 module.exports = router;

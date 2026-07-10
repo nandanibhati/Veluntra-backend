@@ -10,6 +10,7 @@ const {
   listQuerySchema,
 } = require("./admin.validation");
 const { updateOrderStatusSchema, assignSellerSchema } = require("../orders/orders.validation");
+const { idParamSchema } = require("../../utils/commonSchemas");
 const reviewsModerationRouter = require("../reviews/reviews.moderation.routes");
 const suggestionsModerationRouter = require("../suggestions/suggestions.moderation.routes");
 const controller = require("./admin.controller");
@@ -35,7 +36,7 @@ router.get("/users", validate({ query: listQuerySchema }), controller.listUsers)
  *     summary: Full customer detail — orders, wishlist, addresses, coupons used, total spent, reward points
  *     security: [{ bearerAuth: [] }]
  */
-router.get("/users/:id", controller.getCustomerDetail);
+router.get("/users/:id", validate({ params: idParamSchema() }), controller.getCustomerDetail);
 
 /**
  * @openapi
@@ -45,8 +46,8 @@ router.get("/users/:id", controller.getCustomerDetail);
  *     summary: Suspend or reactivate a user
  *     security: [{ bearerAuth: [] }]
  */
-router.patch("/users/:id/status", validate({ body: setUserStatusSchema }), controller.setUserStatus);
-router.delete("/users/:id", controller.deleteUser);
+router.patch("/users/:id/status", validate({ params: idParamSchema(), body: setUserStatusSchema }), controller.setUserStatus);
+router.delete("/users/:id", validate({ params: idParamSchema() }), controller.deleteUser);
 
 /**
  * @openapi
@@ -62,7 +63,12 @@ router.delete("/users/:id", controller.deleteUser);
  *     security: [{ bearerAuth: [] }]
  */
 router.post("/users/admins", requireRole("superadmin"), validate({ body: createAdminSchema }), controller.createAdmin);
-router.patch("/users/:id/role", requireRole("superadmin"), validate({ body: setUserRoleSchema }), controller.setUserRole);
+router.patch(
+  "/users/:id/role",
+  requireRole("superadmin"),
+  validate({ params: idParamSchema(), body: setUserRoleSchema }),
+  controller.setUserRole
+);
 
 /**
  * @openapi
@@ -72,7 +78,7 @@ router.patch("/users/:id/role", requireRole("superadmin"), validate({ body: setU
  *     summary: Trigger a password reset email for a user (admin-initiated)
  *     security: [{ bearerAuth: [] }]
  */
-router.post("/users/:id/reset-password", controller.resetUserPassword);
+router.post("/users/:id/reset-password", validate({ params: idParamSchema() }), controller.resetUserPassword);
 
 /**
  * @openapi
@@ -92,7 +98,7 @@ router.get("/sellers", validate({ query: listQuerySchema }), controller.listStor
  *     summary: Approve or suspend a seller's store
  *     security: [{ bearerAuth: [] }]
  */
-router.patch("/sellers/:id/status", validate({ body: setStoreStatusSchema }), controller.setStoreStatus);
+router.patch("/sellers/:id/status", validate({ params: idParamSchema(), body: setStoreStatusSchema }), controller.setStoreStatus);
 
 /**
  * @openapi
@@ -102,7 +108,11 @@ router.patch("/sellers/:id/status", validate({ body: setStoreStatusSchema }), co
  *     summary: Set a seller's commission percentage (null = use platform default)
  *     security: [{ bearerAuth: [] }]
  */
-router.patch("/sellers/:id/commission", validate({ body: setStoreCommissionSchema }), controller.setStoreCommission);
+router.patch(
+  "/sellers/:id/commission",
+  validate({ params: idParamSchema(), body: setStoreCommissionSchema }),
+  controller.setStoreCommission
+);
 
 /**
  * @openapi
@@ -122,7 +132,11 @@ router.get("/orders", validate({ query: listQuerySchema }), controller.listOrder
  *     summary: Update an order's status/payment/tracking (any store) — cancelling/returning auto-restocks inventory
  *     security: [{ bearerAuth: [] }]
  */
-router.patch("/orders/:id/status", validate({ body: updateOrderStatusSchema }), controller.updateOrderStatus);
+router.patch(
+  "/orders/:id/status",
+  validate({ params: idParamSchema(), body: updateOrderStatusSchema }),
+  controller.updateOrderStatus
+);
 
 /**
  * @openapi
@@ -132,7 +146,11 @@ router.patch("/orders/:id/status", validate({ body: updateOrderStatusSchema }), 
  *     summary: Reassign an order to a different store/seller
  *     security: [{ bearerAuth: [] }]
  */
-router.patch("/orders/:id/assign-seller", validate({ body: assignSellerSchema }), controller.assignSeller);
+router.patch(
+  "/orders/:id/assign-seller",
+  validate({ params: idParamSchema(), body: assignSellerSchema }),
+  controller.assignSeller
+);
 
 /**
  * @openapi
@@ -142,7 +160,7 @@ router.patch("/orders/:id/assign-seller", validate({ body: assignSellerSchema })
  *     summary: Download the PDF invoice for any order
  *     security: [{ bearerAuth: [] }]
  */
-router.get("/orders/:id/invoice", controller.orderInvoice);
+router.get("/orders/:id/invoice", validate({ params: idParamSchema() }), controller.orderInvoice);
 
 /**
  * @openapi

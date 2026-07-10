@@ -3,6 +3,7 @@ const { z } = require("zod");
 const validate = require("../../middleware/validate");
 const { requireAuth } = require("../../middleware/auth");
 const { createReviewSchema } = require("./reviews.validation");
+const { idParamSchema } = require("../../utils/commonSchemas");
 const controller = require("./reviews.controller");
 
 // mergeParams so this router (mounted at /products/:productId/reviews) can read :productId
@@ -29,7 +30,7 @@ router.post("/", requireAuth, validate({ body: createReviewSchema }), controller
  *     tags: [Reviews]
  *     summary: Mark a review as helpful
  */
-router.post("/:reviewId/helpful", controller.markHelpful);
+router.post("/:reviewId/helpful", validate({ params: idParamSchema("reviewId") }), controller.markHelpful);
 
 /**
  * @openapi
@@ -38,6 +39,6 @@ router.post("/:reviewId/helpful", controller.markHelpful);
  *     tags: [Reviews]
  *     summary: Report a review for abuse
  */
-router.post("/:reviewId/report", requireAuth, controller.reportAbuse);
+router.post("/:reviewId/report", requireAuth, validate({ params: idParamSchema("reviewId") }), controller.reportAbuse);
 
 module.exports = router;

@@ -1,6 +1,7 @@
 const { Router } = require("express");
 const { z } = require("zod");
 const validate = require("../../middleware/validate");
+const { idParamSchema } = require("../../utils/commonSchemas");
 const controller = require("./reviews.controller");
 
 // Mounted under /admin/reviews (auth + admin role already enforced by admin.routes.js).
@@ -18,10 +19,18 @@ const replySchema = z.object({ reply: z.string().trim().min(1).max(1000) });
  *     security: [{ bearerAuth: [] }]
  */
 router.get("/", controller.listForModeration);
-router.post("/:reviewId/approve", controller.approve);
-router.post("/:reviewId/reject", controller.reject);
-router.patch("/:reviewId/featured", validate({ body: featuredSchema }), controller.setFeatured);
-router.post("/:reviewId/reply", validate({ body: replySchema }), controller.reply);
-router.delete("/:reviewId", controller.remove);
+router.post("/:reviewId/approve", validate({ params: idParamSchema("reviewId") }), controller.approve);
+router.post("/:reviewId/reject", validate({ params: idParamSchema("reviewId") }), controller.reject);
+router.patch(
+  "/:reviewId/featured",
+  validate({ params: idParamSchema("reviewId"), body: featuredSchema }),
+  controller.setFeatured
+);
+router.post(
+  "/:reviewId/reply",
+  validate({ params: idParamSchema("reviewId"), body: replySchema }),
+  controller.reply
+);
+router.delete("/:reviewId", validate({ params: idParamSchema("reviewId") }), controller.remove);
 
 module.exports = router;

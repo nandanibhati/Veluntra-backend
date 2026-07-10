@@ -2,6 +2,7 @@ const { Router } = require("express");
 const validate = require("../../middleware/validate");
 const { optionalAuth, requireAuth } = require("../../middleware/auth");
 const { addItemSchema, updateItemSchema, applyCouponSchema } = require("./cart.validation");
+const { idParamSchema } = require("../../utils/commonSchemas");
 const controller = require("./cart.controller");
 
 const router = Router();
@@ -39,8 +40,13 @@ router.post("/items", optionalAuth, validate({ body: addItemSchema }), controlle
  *     tags: [Cart]
  *     summary: Remove an item from the cart
  */
-router.patch("/items/:itemId", optionalAuth, validate({ body: updateItemSchema }), controller.updateItem);
-router.delete("/items/:itemId", optionalAuth, controller.removeItem);
+router.patch(
+  "/items/:itemId",
+  optionalAuth,
+  validate({ params: idParamSchema("itemId"), body: updateItemSchema }),
+  controller.updateItem
+);
+router.delete("/items/:itemId", optionalAuth, validate({ params: idParamSchema("itemId") }), controller.removeItem);
 
 /**
  * @openapi

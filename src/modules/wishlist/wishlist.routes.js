@@ -2,6 +2,7 @@ const { Router } = require("express");
 const { z } = require("zod");
 const validate = require("../../middleware/validate");
 const { requireAuth } = require("../../middleware/auth");
+const { idParamSchema } = require("../../utils/commonSchemas");
 const controller = require("./wishlist.controller");
 
 const router = Router();
@@ -32,6 +33,6 @@ router.post("/", validate({ body: addSchema }), controller.add);
  *     summary: Remove a product from the wishlist
  *     security: [{ bearerAuth: [] }]
  */
-router.delete("/:productId", controller.remove);
+router.delete("/:productId", validate({ params: idParamSchema("productId") }), controller.remove);
 
 module.exports = router;

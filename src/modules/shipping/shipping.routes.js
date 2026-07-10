@@ -2,6 +2,7 @@ const { Router } = require("express");
 const validate = require("../../middleware/validate");
 const { requireAuth, requireRole } = require("../../middleware/auth");
 const { createShippingMethodSchema, updateShippingMethodSchema } = require("./shipping.validation");
+const { idParamSchema } = require("../../utils/commonSchemas");
 const controller = require("./shipping.controller");
 
 const router = Router();
@@ -29,9 +30,9 @@ router.patch(
   "/:id",
   requireAuth,
   requireRole("admin"),
-  validate({ body: updateShippingMethodSchema }),
+  validate({ params: idParamSchema(), body: updateShippingMethodSchema }),
   controller.update
 );
-router.delete("/:id", requireAuth, requireRole("admin"), controller.remove);
+router.delete("/:id", requireAuth, requireRole("admin"), validate({ params: idParamSchema() }), controller.remove);
 
 module.exports = router;

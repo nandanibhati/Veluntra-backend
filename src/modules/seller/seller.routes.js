@@ -3,6 +3,7 @@ const validate = require("../../middleware/validate");
 const { requireAuth, requireRole } = require("../../middleware/auth");
 const { listQuerySchema } = require("../admin/admin.validation");
 const { updateOrderStatusSchema } = require("../orders/orders.validation");
+const { idParamSchema } = require("../../utils/commonSchemas");
 const controller = require("./seller.controller");
 
 const router = Router();
@@ -48,7 +49,11 @@ router.get("/orders", validate({ query: listQuerySchema }), controller.listOrder
  *     summary: Update the status/tracking of one of this seller's orders — cancelling/returning auto-restocks inventory
  *     security: [{ bearerAuth: [] }]
  */
-router.patch("/orders/:id/status", validate({ body: updateOrderStatusSchema }), controller.updateOrderStatus);
+router.patch(
+  "/orders/:id/status",
+  validate({ params: idParamSchema(), body: updateOrderStatusSchema }),
+  controller.updateOrderStatus
+);
 
 /**
  * @openapi

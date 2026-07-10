@@ -2,6 +2,7 @@ const { Router } = require("express");
 const validate = require("../../middleware/validate");
 const { requireAuth, requireRole } = require("../../middleware/auth");
 const { createPromotionSchema, updatePromotionSchema } = require("./promotions.validation");
+const { idParamSchema } = require("../../utils/commonSchemas");
 const controller = require("./promotions.controller");
 
 const router = Router();
@@ -42,7 +43,13 @@ router.post("/", requireAuth, requireRole("admin"), validate({ body: createPromo
  *     summary: Delete a promotion (admin only)
  *     security: [{ bearerAuth: [] }]
  */
-router.patch("/:id", requireAuth, requireRole("admin"), validate({ body: updatePromotionSchema }), controller.update);
-router.delete("/:id", requireAuth, requireRole("admin"), controller.remove);
+router.patch(
+  "/:id",
+  requireAuth,
+  requireRole("admin"),
+  validate({ params: idParamSchema(), body: updatePromotionSchema }),
+  controller.update
+);
+router.delete("/:id", requireAuth, requireRole("admin"), validate({ params: idParamSchema() }), controller.remove);
 
 module.exports = router;

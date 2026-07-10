@@ -2,6 +2,7 @@ const { Router } = require("express");
 const validate = require("../../middleware/validate");
 const { requireAuth, requireRole } = require("../../middleware/auth");
 const { createBrandSchema, updateBrandSchema, reorderBrandsSchema } = require("./brands.validation");
+const { idParamSchema } = require("../../utils/commonSchemas");
 const controller = require("./brands.controller");
 
 const router = Router();
@@ -50,7 +51,13 @@ router.patch(
  *     summary: Delete a brand (admin only)
  *     security: [{ bearerAuth: [] }]
  */
-router.patch("/:id", requireAuth, requireRole("admin"), validate({ body: updateBrandSchema }), controller.update);
-router.delete("/:id", requireAuth, requireRole("admin"), controller.remove);
+router.patch(
+  "/:id",
+  requireAuth,
+  requireRole("admin"),
+  validate({ params: idParamSchema(), body: updateBrandSchema }),
+  controller.update
+);
+router.delete("/:id", requireAuth, requireRole("admin"), validate({ params: idParamSchema() }), controller.remove);
 
 module.exports = router;

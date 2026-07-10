@@ -2,6 +2,7 @@ const { Router } = require("express");
 const validate = require("../../middleware/validate");
 const { requireAuth, optionalAuth } = require("../../middleware/auth");
 const { createOrderSchema, requestActionSchema } = require("./orders.validation");
+const { idParamSchema } = require("../../utils/commonSchemas");
 const controller = require("./orders.controller");
 
 const router = Router();
@@ -37,7 +38,7 @@ router.post("/", optionalAuth, validate({ body: createOrderSchema }), controller
  *     summary: Get a single order belonging to the current user
  *     security: [{ bearerAuth: [] }]
  */
-router.get("/:id", requireAuth, controller.getById);
+router.get("/:id", requireAuth, validate({ params: idParamSchema() }), controller.getById);
 
 /**
  * @openapi
@@ -47,7 +48,7 @@ router.get("/:id", requireAuth, controller.getById);
  *     summary: Download a PDF invoice for an order
  *     security: [{ bearerAuth: [] }]
  */
-router.get("/:id/invoice", requireAuth, controller.invoice);
+router.get("/:id/invoice", requireAuth, validate({ params: idParamSchema() }), controller.invoice);
 
 /**
  * @openapi
@@ -67,8 +68,8 @@ router.get("/:id/invoice", requireAuth, controller.invoice);
  *     summary: Request an exchange for a delivered order (only within the exchange window) — admin/seller approves or rejects
  *     security: [{ bearerAuth: [] }]
  */
-router.post("/:id/cancel", requireAuth, validate({ body: requestActionSchema }), controller.cancel);
-router.post("/:id/return", requireAuth, validate({ body: requestActionSchema }), controller.requestReturn);
-router.post("/:id/exchange", requireAuth, validate({ body: requestActionSchema }), controller.requestExchange);
+router.post("/:id/cancel", requireAuth, validate({ params: idParamSchema(), body: requestActionSchema }), controller.cancel);
+router.post("/:id/return", requireAuth, validate({ params: idParamSchema(), body: requestActionSchema }), controller.requestReturn);
+router.post("/:id/exchange", requireAuth, validate({ params: idParamSchema(), body: requestActionSchema }), controller.requestExchange);
 
 module.exports = router;

@@ -2,6 +2,7 @@ const { Router } = require("express");
 const validate = require("../../middleware/validate");
 const { requireAuth } = require("../../middleware/auth");
 const { registerDeviceSchema } = require("./notifications.validation");
+const { idParamSchema } = require("../../utils/commonSchemas");
 const controller = require("./notifications.controller");
 
 const router = Router();
@@ -35,7 +36,7 @@ router.patch("/read-all", controller.markAllRead);
  *     summary: Mark one notification as read
  *     security: [{ bearerAuth: [] }]
  */
-router.patch("/:id/read", controller.markRead);
+router.patch("/:id/read", validate({ params: idParamSchema() }), controller.markRead);
 
 /**
  * @openapi
