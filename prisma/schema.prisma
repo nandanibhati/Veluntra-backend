@@ -214,6 +214,7 @@ model User {
   couponRedemptions  CouponRedemption[]
   inventoryTransactions InventoryTransaction[]
   warehouseStockTransactions WarehouseStockTransaction[]
+  fulfillmentRequests FulfillmentRequest[]
 
   @@map("users")
 }
@@ -678,6 +679,7 @@ model Order {
   shippingAddress Address?        @relation("ShippingAddress", fields: [shippingAddressId], references: [id])
   shippingMethod  ShippingMethod? @relation(fields: [shippingMethodId], references: [id])
   items           OrderItem[]
+  fulfillmentRequests FulfillmentRequest[]
 
   @@index([userId])
   @@index([storeId])
@@ -689,18 +691,20 @@ model Order {
 }
 
 model OrderItem {
-  id              String  @id @default(uuid())
-  orderId         String  @map("order_id")
-  productId       String  @map("product_id")
-  variantId       String? @map("variant_id")
-  nameSnapshot    String  @map("name_snapshot")
-  variantSnapshot Json?   @map("variant_snapshot")
-  priceSnapshot   Decimal @map("price_snapshot") @db.Decimal(10, 2)
-  quantity        Int
+  id                String            @id @default(uuid())
+  orderId           String            @map("order_id")
+  productId         String            @map("product_id")
+  variantId         String?           @map("variant_id")
+  nameSnapshot      String            @map("name_snapshot")
+  variantSnapshot   Json?             @map("variant_snapshot")
+  priceSnapshot     Decimal           @map("price_snapshot") @db.Decimal(10, 2)
+  quantity          Int
+  fulfillmentSource FulfillmentSource @default(seller_stock) @map("fulfillment_source")
 
-  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product         @relation(fields: [productId], references: [id])
-  variant ProductVariant? @relation(fields: [variantId], references: [id])
+  order               Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product             Product              @relation(fields: [productId], references: [id])
+  variant             ProductVariant?      @relation(fields: [variantId], references: [id])
+  fulfillmentRequests FulfillmentRequest[]
 
   @@index([orderId])
   @@index([productId])
@@ -839,6 +843,18 @@ enum WarehouseChangeType {
   fulfillment_restore
 }
 
+enum FulfillmentSource {
+  seller_stock
+  veluntra_warehouse
+}
+
+enum FulfillmentRequestStatus {
+  pending
+  approved
+  rejected
+  fulfilled
+}
+
 /**
  * Full audit trail of every stock change, however it happened — manual edit,
  * bulk tool, or automatic order/cancel/return processing. `actorId` is null
@@ -909,4 +925,28 @@ model WarehouseStockTransaction {
   @@index([productId])
   @@index([createdAt])
   @@map("warehouse_stock_transactions")
+}
+
+/** A seller's request to fulfill one order item from the Veluntra warehouse instead of their
+ * own stock — submit-then-moderate, same shape as Suggestion. No DB-level uniqueness on
+ * orderItemId (a rejected request shouldn't permanently block re-requesting); the service layer
+ * enforces "no existing pending request for this item" instead. */
+model FulfillmentRequest {
+  id                String                   @id @default(uuid())
+  orderId           String                   @map("order_id")
+  orderItemId       String                   @map("order_item_id")
+  requestedByUserId String                   @map("requested_by_user_id")
+  status            FulfillmentRequestStatus @default(pending)
+  sellerNote        String?                  @map("seller_note")
+  adminNote         String?                  @map("admin_note")
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  resolvedAt        DateTime?                @map("resolved_at")
+
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  requestedBy User      @relation(fields: [requestedByUserId], references: [id])
+
+  @@index([status])
+  @@index([orderId])
+  @@map("fulfillment_requests")
 }

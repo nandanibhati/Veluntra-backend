@@ -5,6 +5,7 @@ const { listQuerySchema } = require("../admin/admin.validation");
 const { updateOrderStatusSchema } = require("../orders/orders.validation");
 const { updateStoreBrandingSchema } = require("./seller.validation");
 const { idParamSchema } = require("../../utils/commonSchemas");
+const fulfillmentRequestsRouter = require("../fulfillmentRequests/fulfillmentRequests.routes");
 const controller = require("./seller.controller");
 
 const router = Router();
@@ -80,5 +81,15 @@ router.get("/customers", controller.listCustomers);
  */
 router.get("/store", controller.getStore);
 router.patch("/store", validate({ body: updateStoreBrandingSchema }), controller.updateStoreBranding);
+
+/**
+ * @openapi
+ * /seller/fulfillment-requests:
+ *   post:
+ *     tags: [Seller]
+ *     summary: Request that Veluntra fulfill an order item from the warehouse
+ *     security: [{ bearerAuth: [] }]
+ */
+router.use("/fulfillment-requests", fulfillmentRequestsRouter);
 
 module.exports = router;

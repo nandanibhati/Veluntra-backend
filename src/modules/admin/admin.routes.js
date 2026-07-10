@@ -14,6 +14,7 @@ const { updateOrderStatusSchema, assignSellerSchema } = require("../orders/order
 const { idParamSchema } = require("../../utils/commonSchemas");
 const reviewsModerationRouter = require("../reviews/reviews.moderation.routes");
 const suggestionsModerationRouter = require("../suggestions/suggestions.moderation.routes");
+const fulfillmentRequestsModerationRouter = require("../fulfillmentRequests/fulfillmentRequests.moderation.routes");
 const controller = require("./admin.controller");
 
 const router = Router();
@@ -248,5 +249,15 @@ router.post(
   controller.adjustWarehouseStock
 );
 router.get("/warehouse-stock/:productId/history", validate({ params: idParamSchema("productId") }), controller.warehouseStockHistory);
+
+/**
+ * @openapi
+ * /admin/fulfillment-requests:
+ *   get:
+ *     tags: [Admin]
+ *     summary: Seller requests to fulfill order items from the Veluntra warehouse — approve/reject
+ *     security: [{ bearerAuth: [] }]
+ */
+router.use("/fulfillment-requests", fulfillmentRequestsModerationRouter);
 
 module.exports = router;
