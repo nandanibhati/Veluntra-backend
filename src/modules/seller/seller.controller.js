@@ -1,5 +1,6 @@
 const asyncHandler = require("../../utils/asyncHandler");
 const { sendSuccess, paginationMeta } = require("../../utils/apiResponse");
+const { toPlain } = require("../../utils/serialize");
 const service = require("./seller.service");
 const ordersService = require("../orders/orders.service");
 
@@ -46,4 +47,15 @@ const listCustomers = asyncHandler(async (req, res) => {
   sendSuccess(res, { data: customers });
 });
 
-module.exports = { overview, listProducts, listOrders, updateOrderStatus, listCustomers };
+const getStore = asyncHandler(async (req, res) => {
+  const store = await service.getStoreForOwner(req.user.id, req.user.role);
+  sendSuccess(res, { data: toPlain(store) });
+});
+
+const updateStoreBranding = asyncHandler(async (req, res) => {
+  const store = await service.getStoreForOwner(req.user.id, req.user.role);
+  const updated = await service.updateStoreBranding(store.id, req.body);
+  sendSuccess(res, { data: updated });
+});
+
+module.exports = { overview, listProducts, listOrders, updateOrderStatus, listCustomers, getStore, updateStoreBranding };

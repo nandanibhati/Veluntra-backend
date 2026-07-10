@@ -171,6 +171,13 @@ async function listCustomers(storeId) {
   }));
 }
 
+/** Updates the seller's own store branding — shown on customer-facing documents
+ * (invoice, packing slip, shipping label) instead of platform branding. */
+async function updateStoreBranding(storeId, data) {
+  const store = await prisma.store.update({ where: { id: storeId }, data });
+  return toPlain(store);
+}
+
 module.exports = {
   getStoreForOwner,
   overview,
@@ -180,4 +187,5 @@ module.exports = {
   listProducts,
   listOrders,
   listCustomers,
+  updateStoreBranding,
 };

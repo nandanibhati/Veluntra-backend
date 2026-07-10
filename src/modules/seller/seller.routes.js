@@ -3,6 +3,7 @@ const validate = require("../../middleware/validate");
 const { requireAuth, requireRole } = require("../../middleware/auth");
 const { listQuerySchema } = require("../admin/admin.validation");
 const { updateOrderStatusSchema } = require("../orders/orders.validation");
+const { updateStoreBrandingSchema } = require("./seller.validation");
 const { idParamSchema } = require("../../utils/commonSchemas");
 const controller = require("./seller.controller");
 
@@ -64,5 +65,20 @@ router.patch(
  *     security: [{ bearerAuth: [] }]
  */
 router.get("/customers", controller.listCustomers);
+
+/**
+ * @openapi
+ * /seller/store:
+ *   get:
+ *     tags: [Seller]
+ *     summary: Get this seller's own store (including branding fields)
+ *     security: [{ bearerAuth: [] }]
+ *   patch:
+ *     tags: [Seller]
+ *     summary: Update this seller's own store branding (name, logo, address, contact info) — shown on customer-facing documents
+ *     security: [{ bearerAuth: [] }]
+ */
+router.get("/store", controller.getStore);
+router.patch("/store", validate({ body: updateStoreBrandingSchema }), controller.updateStoreBranding);
 
 module.exports = router;
