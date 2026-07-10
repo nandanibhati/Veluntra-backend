@@ -4,6 +4,7 @@ const { toPlain } = require("../../utils/serialize");
 const { parsePagination } = require("../../utils/pagination");
 const { logActivity } = require("../../utils/activityLog");
 const { hashPassword } = require("../../utils/password");
+const { resolvePeriodConfig } = require("../../utils/periodConfig");
 
 // ---------- Users ----------
 
@@ -276,8 +277,6 @@ async function listActivityLogs(query) {
 
 // ---------- Analytics ----------
 
-const TRUNC_BY_PERIOD = { day: "day", week: "week", month: "month" };
-
 async function overview() {
   const [revenueAgg, totalOrders, totalCustomers, refundedCount, profitAgg] = await Promise.all([
     prisma.order.aggregate({ where: { status: { not: "cancelled" } }, _sum: { total: true } }),
@@ -363,12 +362,14 @@ async function dashboardSummary() {
   };
 }
 
-/** `period`: "day" | "week" | "month" — defaults to month. */
+/** `period`: "day" | "week" | "month" — defaults to month. The controller already whitelists
+ * this to exactly those three values before calling in; resolvePeriodConfig's own fallback to
+ * "month" is a second line of defense, not the primary guard. */
 async function revenueTrend(period = "month") {
-  const trunc = TRUNC_BY_PERIOD[period] || "month";
-  const lookback = period === "day" ? "30 days" : period === "week" ? "12 weeks" : "6 months";
-  const labelFormat = period === "month" ? "Mon" : "Mon DD";
-
+  const { trunc, lookback, labelFormat } = resolvePeriodConfig(period);
+  // trunc/lookback/labelFormat only ever come from periodConfig.js's fixed PERIOD_CONFIG map —
+  // never from raw user input — because $queryRawUnsafe can't parameterize identifiers/intervals.
+  // Add new bindable values via prisma.$queryRaw with real params instead of interpolating here.
   const rows = await prisma.$queryRawUnsafe(
     `SELECT to_char(date_trunc('${trunc}', placed_at), '${labelFormat}') AS month,
             date_trunc('${trunc}', placed_at) AS bucket,

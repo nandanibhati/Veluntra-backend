@@ -3,6 +3,7 @@ const ApiError = require("../../utils/ApiError");
 const { toPlain } = require("../../utils/serialize");
 const { parsePagination } = require("../../utils/pagination");
 const { resolveSoleStoreForAdmin } = require("../../utils/soleStore");
+const { resolvePeriodConfig } = require("../../utils/periodConfig");
 
 /**
  * Resolves which store the Seller Dashboard should manage for the current user.
@@ -68,10 +69,10 @@ async function overview(storeId) {
 }
 
 async function revenueTrend(storeId, period = "month") {
-  const trunc = { day: "day", week: "week", month: "month" }[period] || "month";
-  const lookback = period === "day" ? "30 days" : period === "week" ? "12 weeks" : "6 months";
-  const labelFormat = period === "month" ? "Mon" : "Mon DD";
-
+  const { trunc, lookback, labelFormat } = resolvePeriodConfig(period);
+  // trunc/lookback/labelFormat only ever come from periodConfig.js's fixed PERIOD_CONFIG map —
+  // never from raw user input — because $queryRawUnsafe can't parameterize identifiers/intervals.
+  // storeId is safely bound as $1 below; add new bindable values the same way, never interpolated.
   const rows = await prisma.$queryRawUnsafe(
     `SELECT to_char(date_trunc('${trunc}', placed_at), '${labelFormat}') AS label,
             date_trunc('${trunc}', placed_at) AS bucket,
