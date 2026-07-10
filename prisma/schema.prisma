@@ -286,6 +286,18 @@ model Store {
   commissionPercent Decimal?    @map("commission_percent") @db.Decimal(5, 2) // null = use platform default
   createdAt         DateTime    @default(now()) @map("created_at")
 
+  // Seller-editable branding, shown on customer-facing documents (invoice, packing slip,
+  // shipping label) instead of platform branding — see backend/src/utils/invoice.js.
+  logoUrl      String? @map("logo_url")
+  contactEmail String? @map("contact_email")
+  contactPhone String? @map("contact_phone")
+  addressLine1 String? @map("address_line1")
+  addressLine2 String? @map("address_line2")
+  city         String?
+  state        String?
+  postalCode   String? @map("postal_code")
+  country      String? @default("GB")
+
   owner    User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   products Product[]
   orders   Order[]
