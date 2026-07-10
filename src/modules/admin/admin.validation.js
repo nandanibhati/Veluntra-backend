@@ -34,6 +34,14 @@ const listQuerySchema = z.object({
   scope: z.string().optional(),
 });
 
+const adjustWarehouseStockSchema = z.object({
+  variantId: z.string().uuid().optional().nullable(),
+  // Positive-only "add stock" vs. signed "correction" are both expressed as one delta here —
+  // provisioning is just a positive adjust() call; keeps the API surface to one endpoint.
+  delta: z.coerce.number().int().refine((n) => n !== 0, "Delta can't be zero."),
+  reason: z.string().trim().max(300).optional(),
+});
+
 module.exports = {
   setUserStatusSchema,
   setUserRoleSchema,
@@ -41,4 +49,5 @@ module.exports = {
   setStoreStatusSchema,
   setStoreCommissionSchema,
   listQuerySchema,
+  adjustWarehouseStockSchema,
 };

@@ -8,6 +8,7 @@ const {
   setStoreStatusSchema,
   setStoreCommissionSchema,
   listQuerySchema,
+  adjustWarehouseStockSchema,
 } = require("./admin.validation");
 const { updateOrderStatusSchema, assignSellerSchema } = require("../orders/orders.validation");
 const { idParamSchema } = require("../../utils/commonSchemas");
@@ -221,5 +222,31 @@ router.use("/reviews", reviewsModerationRouter);
  *     security: [{ bearerAuth: [] }]
  */
 router.use("/suggestions", suggestionsModerationRouter);
+
+/**
+ * @openapi
+ * /admin/warehouse-stock:
+ *   get:
+ *     tags: [Admin]
+ *     summary: List warehouse stock levels, optionally searched by product name
+ *     security: [{ bearerAuth: [] }]
+ * /admin/warehouse-stock/{productId}/adjust:
+ *   post:
+ *     tags: [Admin]
+ *     summary: Provision or correct warehouse stock for a product/variant (signed delta, logged)
+ *     security: [{ bearerAuth: [] }]
+ * /admin/warehouse-stock/{productId}/history:
+ *   get:
+ *     tags: [Admin]
+ *     summary: Recent warehouse stock transactions for a product/variant
+ *     security: [{ bearerAuth: [] }]
+ */
+router.get("/warehouse-stock", controller.listWarehouseStock);
+router.post(
+  "/warehouse-stock/:productId/adjust",
+  validate({ params: idParamSchema("productId"), body: adjustWarehouseStockSchema }),
+  controller.adjustWarehouseStock
+);
+router.get("/warehouse-stock/:productId/history", validate({ params: idParamSchema("productId") }), controller.warehouseStockHistory);
 
 module.exports = router;

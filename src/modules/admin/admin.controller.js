@@ -7,6 +7,7 @@ const service = require("./admin.service");
 const ordersService = require("../orders/orders.service");
 const settingsService = require("../settings/settings.service");
 const authService = require("../auth/auth.service");
+const warehouseInventoryService = require("../inventory/warehouseInventory.service");
 
 const listUsers = asyncHandler(async (req, res) => {
   const { items, page, limit, total } = await service.listUsers(req.query);
@@ -122,6 +123,30 @@ const dashboardSummary = asyncHandler(async (req, res) => {
   sendSuccess(res, { data });
 });
 
+const listWarehouseStock = asyncHandler(async (req, res) => {
+  const rows = await warehouseInventoryService.list(req.query);
+  sendSuccess(res, { data: rows });
+});
+
+const adjustWarehouseStock = asyncHandler(async (req, res) => {
+  const { variantId, delta, reason } = req.body;
+  const stock = await prisma.$transaction((tx) =>
+    warehouseInventoryService.adjust(tx, {
+      productId: req.params.productId,
+      variantId: variantId || null,
+      delta,
+      actorId: req.user.id,
+      reason,
+    })
+  );
+  sendSuccess(res, { data: { stock } });
+});
+
+const warehouseStockHistory = asyncHandler(async (req, res) => {
+  const rows = await warehouseInventoryService.transactionsFor(req.params.productId, req.query.variantId);
+  sendSuccess(res, { data: rows });
+});
+
 module.exports = {
   listUsers,
   getCustomerDetail,
@@ -141,4 +166,7 @@ module.exports = {
   listActivityLogs,
   analytics,
   dashboardSummary,
+  listWarehouseStock,
+  adjustWarehouseStock,
+  warehouseStockHistory,
 };
