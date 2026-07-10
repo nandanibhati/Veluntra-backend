@@ -271,6 +271,16 @@ async function updateStatus(id, data, { storeId, isAdmin, actorId, ipAddress }) 
   if (!order) throw ApiError.notFound("Order not found.");
   if (!isAdmin && order.storeId !== storeId) throw ApiError.forbidden("This order does not belong to your store.");
 
+  // Once any item on this order has been fulfilled from the Veluntra warehouse, the seller never
+  // physically had the parcel — only admin (acting as warehouse ops) can advance shipping status
+  // or touch tracking for it. A purely seller-fulfilled order is completely unaffected.
+  const hasWarehouseItem = order.items.some((i) => i.fulfillmentSource === "veluntra_warehouse");
+  const touchesShipping =
+    data.status === "shipped" || data.trackingCarrier !== undefined || data.trackingNumber !== undefined || data.trackingUrl !== undefined;
+  if (!isAdmin && hasWarehouseItem && touchesShipping) {
+    throw ApiError.forbidden("This order was fulfilled from the Veluntra warehouse — only admin can update its shipping status or tracking.");
+  }
+
   const isRestocking = Boolean(data.status && isRestockingTransition(order.status, data.status));
   const finalData = { ...data };
   if (isRestocking && data.status === "cancelled" && order.paymentStatus === "paid" && !data.paymentStatus) {
