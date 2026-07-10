@@ -1,6 +1,7 @@
 const prisma = require("../config/db");
 const notificationsService = require("../modules/notifications/notifications.service");
 const ordersService = require("../modules/orders/orders.service");
+const logger = require("../config/logger");
 
 const CHECK_INTERVAL_MS = 15 * 60 * 1000; // every 15 minutes
 const SOON_WINDOW_MS = 2 * 60 * 60 * 1000; // "ending/expiring soon" = within 2 hours
@@ -90,8 +91,7 @@ async function checkStaleCardOrders() {
         { isAdmin: true, actorId: null, ipAddress: null }
       );
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error(`[scheduler] failed to cancel stale unpaid order ${order.orderNumber}:`, err);
+      logger.error({ err, orderNumber: order.orderNumber }, "[scheduler] failed to cancel stale unpaid order");
     }
   }
 }
@@ -106,8 +106,7 @@ async function runChecks() {
       checkStaleCardOrders(),
     ]);
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error("[scheduler] check run failed:", err);
+    logger.error({ err }, "[scheduler] check run failed");
   }
 }
 

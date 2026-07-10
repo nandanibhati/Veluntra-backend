@@ -1,5 +1,6 @@
 const ApiError = require("../utils/ApiError");
 const env = require("../config/env");
+const logger = require("../config/logger");
 
 function notFoundHandler(req, res) {
   res.status(404).json({
@@ -25,8 +26,7 @@ function errorHandler(err, req, res, next) {
   const message = statusCode === 500 && env.nodeEnv === "production" ? "Internal server error" : err.message;
 
   if (statusCode === 500) {
-    // eslint-disable-next-line no-console
-    console.error(err);
+    (req.log || logger).error({ err, path: req.originalUrl, method: req.method }, "Unhandled error");
   }
 
   res.status(statusCode).json({

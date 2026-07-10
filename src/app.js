@@ -1,12 +1,14 @@
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
-const morgan = require("morgan");
+const pinoHttp = require("pino-http");
 const path = require("path");
+const { randomUUID } = require("crypto");
 const cookieParser = require("cookie-parser");
 const swaggerUi = require("swagger-ui-express");
 
 const env = require("./config/env");
+const logger = require("./config/logger");
 const { notFoundHandler, errorHandler } = require("./middleware/errorHandler");
 const { apiLimiter } = require("./middleware/rateLimit");
 const openapiSpec = require("./docs");
@@ -59,7 +61,13 @@ app.use("/api/v1/webhooks", express.raw({ type: "application/json" }), paymentsR
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(morgan(env.nodeEnv === "development" ? "dev" : "combined"));
+app.use(
+  pinoHttp({
+    logger,
+    genReqId: (req) => req.headers["x-request-id"] || randomUUID(),
+    autoLogging: { ignore: (req) => req.url === "/health" },
+  })
+);
 app.use("/api/v1", apiLimiter);
 
 // Publicly served uploaded files (product images, avatars).

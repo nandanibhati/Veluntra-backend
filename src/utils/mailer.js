@@ -1,5 +1,6 @@
 const nodemailer = require("nodemailer");
 const settingsService = require("../modules/settings/settings.service");
+const logger = require("../config/logger");
 
 /**
  * Sends an email using the SMTP credentials configured in the admin
@@ -16,16 +17,14 @@ async function sendMail({ to, subject, text, html, critical = false }) {
   const settings = await settingsService.getRawForInternalUse();
 
   if (!critical && settingsService.resolveFeatureFlags(settings).emailNotifications === false) {
-    // eslint-disable-next-line no-console
-    console.log(`[mailer] Email notifications are disabled in Settings — skipped sending to ${to}: ${subject}`);
+    logger.info({ to, subject }, "[mailer] Email notifications are disabled in Settings — skipped sending");
     return { delivered: false, reason: "email_notifications_disabled" };
   }
 
   const smtp = settings.smtpConfig;
 
   if (!smtp?.host || !smtp?.user || !smtp?.pass) {
-    // eslint-disable-next-line no-console
-    console.log(`[mailer] SMTP not configured — would have sent to ${to}: ${subject}\n${text}`);
+    logger.info({ to, subject }, "[mailer] SMTP not configured — would have sent");
     return { delivered: false, reason: "smtp_not_configured" };
   }
 

@@ -1,7 +1,7 @@
-/* eslint-disable no-console */
 const asyncHandler = require("../../utils/asyncHandler");
 const paymentsService = require("./payments.service");
 const ordersService = require("../orders/orders.service");
+const logger = require("../../config/logger");
 
 /**
  * Stripe calls this directly (never the browser) whenever a Checkout Session's status changes.
@@ -13,7 +13,7 @@ const stripeWebhook = asyncHandler(async (req, res) => {
   try {
     event = paymentsService.constructWebhookEvent(req.body, req.headers["stripe-signature"]);
   } catch (err) {
-    console.error("Stripe webhook signature verification failed:", err.message);
+    logger.warn({ err }, "Stripe webhook signature verification failed");
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
