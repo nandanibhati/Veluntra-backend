@@ -27,4 +27,15 @@ const suggestionLimiter = rateLimit({
   message: { success: false, error: { message: "Too many suggestions submitted. Please try again later." } },
 });
 
-module.exports = { apiLimiter, authLimiter, suggestionLimiter };
+/** Guards the public order-tracking lookup (chatbot "track my order") from being used to brute
+ * force order numbers against common email addresses — tighter than suggestionLimiter since
+ * this is an enumeration risk, not just spam. */
+const orderTrackLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: { message: "Too many order lookups. Please try again later." } },
+});
+
+module.exports = { apiLimiter, authLimiter, suggestionLimiter, orderTrackLimiter };

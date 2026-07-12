@@ -1,11 +1,21 @@
 const { Router } = require("express");
 const validate = require("../../middleware/validate");
 const { requireAuth, optionalAuth } = require("../../middleware/auth");
-const { createOrderSchema, requestActionSchema } = require("./orders.validation");
+const { orderTrackLimiter } = require("../../middleware/rateLimit");
+const { createOrderSchema, requestActionSchema, trackOrderSchema } = require("./orders.validation");
 const { idParamSchema } = require("../../utils/commonSchemas");
 const controller = require("./orders.controller");
 
 const router = Router();
+
+/**
+ * @openapi
+ * /orders/track:
+ *   post:
+ *     tags: [Orders]
+ *     summary: Public order-status lookup by order number + email (no auth) — powers the storefront chatbot's "track my order" flow
+ */
+router.post("/track", orderTrackLimiter, validate({ body: trackOrderSchema }), controller.track);
 
 /**
  * @openapi

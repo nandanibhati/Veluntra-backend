@@ -75,6 +75,11 @@ const create = asyncHandler(async (req, res) => {
   sendSuccess(res, { data, statusCode: 201 });
 });
 
+const track = asyncHandler(async (req, res) => {
+  const order = await service.trackByOrderNumberAndEmail(req.body.orderNumber, req.body.email);
+  sendSuccess(res, { data: order });
+});
+
 const list = asyncHandler(async (req, res) => {
   const { items, page, limit, total } = await service.listForUser(req.user.id, req.query);
   sendSuccess(res, { data: items, meta: paginationMeta({ page, limit, total }) });
@@ -122,4 +127,4 @@ const requestExchange = asyncHandler(async (req, res) => {
   sendSuccess(res, { data: order });
 });
 
-module.exports = { create, list, getById, invoice, packingSlip, shippingLabel, cancel, requestReturn, requestExchange };
+module.exports = { create, track, list, getById, invoice, packingSlip, shippingLabel, cancel, requestReturn, requestExchange };

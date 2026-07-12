@@ -265,6 +265,36 @@ async function getByIdRaw(id) {
   return order;
 }
 
+/** Public, unauthenticated order lookup (order number + email) for the storefront chatbot's
+ * "track my order" flow — works for both guest and registered-account orders, since guest
+ * checkout creates a real User row per email (see auth.service.js#findOrCreateGuestUser).
+ * Deliberately returns a narrow field set, never the full ORDER_INCLUDE shape (no address, no
+ * financial totals, no store details) — a leaked/guessed order number should never expose more
+ * than shipment status. Same generic error whether the email or the order number was wrong, so
+ * this can't be used to enumerate which emails have placed orders. */
+async function trackByOrderNumberAndEmail(orderNumber, email) {
+  const notFoundError = ApiError.notFound("We couldn't find an order with that number and email.");
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) throw notFoundError;
+
+  const order = await prisma.order.findFirst({
+    where: { orderNumber: orderNumber.trim(), userId: user.id },
+    include: { items: { select: { nameSnapshot: true, quantity: true } } },
+  });
+  if (!order) throw notFoundError;
+
+  return {
+    orderNumber: order.orderNumber,
+    status: order.status,
+    placedAt: order.placedAt,
+    deliveredAt: order.deliveredAt,
+    trackingNumber: order.trackingNumber,
+    trackingCarrier: order.trackingCarrier,
+    trackingUrl: order.trackingUrl,
+    items: order.items.map((i) => ({ name: i.nameSnapshot, quantity: i.quantity })),
+  };
+}
+
 /** Used by admin (any order) and seller (only their own store's orders) controllers. */
 async function updateStatus(id, data, { storeId, isAdmin, actorId, ipAddress }) {
   const order = await prisma.order.findUnique({ where: { id }, include: { items: true } });
@@ -460,6 +490,7 @@ module.exports = {
   listForUser,
   getByIdForUser,
   getByIdRaw,
+  trackByOrderNumberAndEmail,
   updateStatus,
   requestCancellation,
   requestReturn,

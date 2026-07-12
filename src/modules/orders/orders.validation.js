@@ -58,4 +58,9 @@ const requestActionSchema = z.object({
   reason: z.string().trim().min(1).max(500).optional(),
 });
 
-module.exports = { createOrderSchema, updateOrderStatusSchema, assignSellerSchema, requestActionSchema };
+const trackOrderSchema = z.object({
+  orderNumber: z.string().trim().min(1).max(40),
+  email: z.string().trim().toLowerCase().email(),
+});
+
+module.exports = { createOrderSchema, updateOrderStatusSchema, assignSellerSchema, requestActionSchema, trackOrderSchema };
