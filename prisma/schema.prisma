@@ -791,6 +791,7 @@ model Settings {
   contactAddress      String?  @map("contact_address")
   socialLinks         Json?    @map("social_links") // e.g. { instagram, twitter, facebook }
   returnPolicy        String?  @map("return_policy") @db.Text
+  sellerWarranty      String?  @map("seller_warranty") @db.Text
   privacyPolicy       String?  @map("privacy_policy") @db.Text
   termsOfService      String?  @map("terms_of_service") @db.Text
   smtpConfig          Json?    @map("smtp_config")

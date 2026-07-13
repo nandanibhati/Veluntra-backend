@@ -27,6 +27,7 @@ const updateSettingsSchema = z.object({
   contactAddress: z.string().max(300).optional().nullable(),
   socialLinks: z.record(z.string(), z.string()).optional().nullable(),
   returnPolicy: z.string().optional().nullable(),
+  sellerWarranty: z.string().optional().nullable(),
   privacyPolicy: z.string().optional().nullable(),
   termsOfService: z.string().optional().nullable(),
 

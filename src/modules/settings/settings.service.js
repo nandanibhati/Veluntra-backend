@@ -134,6 +134,7 @@ async function getPublic() {
     contactAddress: plain.contactAddress,
     socialLinks: plain.socialLinks,
     returnPolicy: plain.returnPolicy,
+    sellerWarranty: plain.sellerWarranty,
     privacyPolicy: plain.privacyPolicy,
     termsOfService: plain.termsOfService,
     featureFlags: resolveFeatureFlags(plain),
