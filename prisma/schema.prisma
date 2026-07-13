@@ -387,6 +387,7 @@ model Product {
   isTrending     Boolean       @default(false) @map("is_trending")
   isBestSeller   Boolean       @default(false) @map("is_best_seller")
   badge          String?
+  condition      String?       // "Brand New" | "Open Box" — null means unspecified/not shown
   // Per-product override of the global animation preset (Settings.animationConfig).
   // Null/absent means "inherit the global preset". Shape: { enabled, type, speed,
   // intensity, heroHighlight, homepageHighlight }.

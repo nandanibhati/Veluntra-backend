@@ -57,6 +57,7 @@ const createProductSchema = z.object({
   isTrending: z.coerce.boolean().default(false),
   isBestSeller: z.coerce.boolean().default(false),
   badge: z.string().max(40).optional().nullable(),
+  condition: z.enum(["Brand New", "Open Box"]).optional().nullable(),
   animationOverride: animationOverrideSchema,
   tags: z.array(z.string().trim().min(1).max(40)).optional().default([]),
   highlights: z.array(z.string()).optional().default([]),
