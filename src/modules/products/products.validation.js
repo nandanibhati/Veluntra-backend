@@ -92,7 +92,37 @@ const createProductSchema = z.object({
   variants: z.array(variantSchema).optional().default([]),
 });
 
-const updateProductSchema = createProductSchema.partial();
+// `.partial()` alone isn't enough: fields defined with `.default(...)` above still apply that
+// default when the key is simply absent from a PATCH body, silently resetting them (e.g. an
+// edit that omits `codAvailable` would re-enable COD, or omitting `status` would unpublish the
+// product). Re-declaring those fields here without `.default()` keeps a truly partial update —
+// an omitted key leaves the existing DB value untouched.
+const updateProductSchema = createProductSchema.partial().extend({
+  stock: z.coerce.number().int().min(0).optional(),
+  lowStockThreshold: z.coerce.number().int().min(0).optional(),
+  status: z.enum(PRODUCT_STATUSES).optional(),
+  isNew: z.coerce.boolean().optional(),
+  isFeatured: z.coerce.boolean().optional(),
+  isTrending: z.coerce.boolean().optional(),
+  isBestSeller: z.coerce.boolean().optional(),
+  tags: z.array(z.string().trim().min(1).max(40)).optional(),
+  highlights: z.array(z.string()).optional(),
+  specifications: z.array(specSchema).optional(),
+  images: z.array(z.string().url()).optional(),
+  videos: z.array(z.string().url()).optional(),
+  codAvailable: z.coerce.boolean().optional(),
+  options: z
+    .array(
+      z.object({
+        kind: z.enum(["color", "size", "storage", "material", "custom"]),
+        label: z.string(),
+        extra: z.string().optional(),
+        inStock: z.boolean().optional(),
+      })
+    )
+    .optional(),
+  variants: z.array(variantSchema).optional(),
+});
 
 const listProductsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).optional(),
