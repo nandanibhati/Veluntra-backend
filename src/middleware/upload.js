@@ -64,13 +64,15 @@ function publicUrlFor(filename) {
   return `/uploads/${filename}`;
 }
 
-/** In-memory upload for CSV bulk import — we parse the buffer directly, no need to persist the file. */
+/** In-memory upload for bulk product import — we parse the buffer directly, no need to persist
+ * the file. Accepts .csv or .xlsx (the common "just export from Excel" case). */
 const uploadCsv = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (!file.originalname.toLowerCase().endsWith(".csv") && file.mimetype !== "text/csv") {
-      return cb(ApiError.badRequest("Only .csv files are accepted."));
+    const name = file.originalname.toLowerCase();
+    if (!name.endsWith(".csv") && !name.endsWith(".xlsx")) {
+      return cb(ApiError.badRequest("Only .csv or .xlsx files are accepted."));
     }
     cb(null, true);
   },

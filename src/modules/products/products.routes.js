@@ -82,7 +82,7 @@ router.post(
  * /products/import:
  *   post:
  *     tags: [Products]
- *     summary: Bulk create/update products from a CSV file (matched by SKU)
+ *     summary: Bulk create/update products from a CSV or .xlsx file (matched by SKU)
  *     security: [{ bearerAuth: [] }]
  *     requestBody:
  *       content:

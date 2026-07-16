@@ -1,5 +1,6 @@
 const { parse } = require("csv-parse/sync");
 const { stringify } = require("csv-stringify/sync");
+const ExcelJS = require("exceljs");
 const asyncHandler = require("../../utils/asyncHandler");
 const { sendSuccess, paginationMeta } = require("../../utils/apiResponse");
 const ApiError = require("../../utils/ApiError");
@@ -81,12 +82,48 @@ const exportCsv = asyncHandler(async (req, res) => {
   res.send(csv);
 });
 
+/** Reads the first worksheet of an .xlsx buffer into the same shape csv-parse produces:
+ * an array of { header: value } objects, one per data row, using row 1 as headers. */
+async function parseXlsxRows(buffer) {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  const sheet = workbook.worksheets[0];
+  if (!sheet) return [];
+
+  const headerRow = sheet.getRow(1);
+  const headers = [];
+  headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+    headers[colNumber] = String(cell.value ?? "").trim();
+  });
+
+  const rows = [];
+  sheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) return;
+    const obj = {};
+    let hasValue = false;
+    row.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+      const header = headers[colNumber];
+      if (!header) return;
+      let value = cell.value;
+      if (value && typeof value === "object" && "result" in value) value = value.result; // formula cell
+      if (value instanceof Date) value = value.toISOString();
+      obj[header] = value == null ? "" : String(value).trim();
+      hasValue = true;
+    });
+    if (hasValue) rows.push(obj);
+  });
+  return rows;
+}
+
 const importCsv = asyncHandler(async (req, res) => {
-  if (!req.file) throw ApiError.badRequest("No CSV file uploaded (field name: file).");
+  if (!req.file) throw ApiError.badRequest("No file uploaded (field name: file).");
   const { storeId } = ADMIN_ROLES.has(req.user.role) ? { storeId: req.body.storeId } : await resolveStoreContext(req);
   if (!storeId) throw ApiError.badRequest("storeId is required.");
 
-  const rows = parse(req.file.buffer.toString("utf-8"), { columns: true, skip_empty_lines: true, trim: true });
+  const isXlsx = req.file.originalname.toLowerCase().endsWith(".xlsx");
+  const rows = isXlsx
+    ? await parseXlsxRows(req.file.buffer)
+    : parse(req.file.buffer.toString("utf-8"), { columns: true, skip_empty_lines: true, trim: true });
   const results = await service.bulkImport(rows, { storeId, actorId: req.user.id });
   sendSuccess(res, { data: results });
 });
