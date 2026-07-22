@@ -307,37 +307,50 @@ async function rehostCuratedImages(prisma) {
 /** Seeds categories, brands, products (attached to `storeId`), shipping methods, coupons,
  * a launch promotion, and default homepage sections. Every step skips if it already exists. */
 async function seedSampleCatalog(prisma, { storeId }) {
+  // Once a store has grown well past the starter set (47 products), it's running on real
+  // inventory, not placeholder content. This runs on every boot (see seed.production.js), so
+  // without this gate, deliberately deleting a starter category/brand/product just makes it
+  // reappear on the next deploy — it's "missing" from the store's perspective, and every step
+  // below is written to backfill whatever's missing. PRODUCTS.length is 47; anything comfortably
+  // above that means real growth, not a gap this seed should fill.
+  const existingProductCount = await prisma.product.count({ where: { storeId } });
+  const skipStarterCatalog = existingProductCount > 60;
+
   const FEATURED_CATEGORIES = new Set(["Audio", "Smart Home", "Computing", "Home & Kitchen"]);
   const categoryByName = {};
   let categoriesCreated = 0;
-  for (const name of CATEGORIES) {
-    const existing = await prisma.category.findUnique({ where: { slug: slugify(name) } });
-    const cat = await prisma.category.upsert({
-      where: { slug: slugify(name) },
-      update: {},
-      create: {
-        name,
-        slug: slugify(name),
-        featured: FEATURED_CATEGORIES.has(name),
-        imageUrl: categoryImageUrl(name),
-      },
-    });
-    if (!existing) categoriesCreated += 1;
-    categoryByName[name] = cat;
+  if (!skipStarterCatalog) {
+    for (const name of CATEGORIES) {
+      const existing = await prisma.category.findUnique({ where: { slug: slugify(name) } });
+      const cat = await prisma.category.upsert({
+        where: { slug: slugify(name) },
+        update: {},
+        create: {
+          name,
+          slug: slugify(name),
+          featured: FEATURED_CATEGORIES.has(name),
+          imageUrl: categoryImageUrl(name),
+        },
+      });
+      if (!existing) categoriesCreated += 1;
+      categoryByName[name] = cat;
+    }
   }
 
   const FEATURED_BRANDS = new Set(["Veluntra", "Nexora", "Meridian"]);
   const brandByName = {};
   let brandsCreated = 0;
-  for (const name of BRANDS) {
-    const existing = await prisma.brand.findUnique({ where: { slug: slugify(name) } });
-    const brand = await prisma.brand.upsert({
-      where: { slug: slugify(name) },
-      update: {},
-      create: { name, slug: slugify(name), featured: FEATURED_BRANDS.has(name) },
-    });
-    if (!existing) brandsCreated += 1;
-    brandByName[name] = brand;
+  if (!skipStarterCatalog) {
+    for (const name of BRANDS) {
+      const existing = await prisma.brand.findUnique({ where: { slug: slugify(name) } });
+      const brand = await prisma.brand.upsert({
+        where: { slug: slugify(name) },
+        update: {},
+        create: { name, slug: slugify(name), featured: FEATURED_BRANDS.has(name) },
+      });
+      if (!existing) brandsCreated += 1;
+      brandByName[name] = brand;
+    }
   }
 
   for (const method of SHIPPING_METHODS) {
@@ -350,44 +363,46 @@ async function seedSampleCatalog(prisma, { storeId }) {
   }
 
   let productsCreated = 0;
-  for (const p of PRODUCTS) {
-    const existing = await prisma.product.findFirst({ where: { name: p.name } });
-    if (existing) continue;
+  if (!skipStarterCatalog) {
+    for (const p of PRODUCTS) {
+      const existing = await prisma.product.findFirst({ where: { name: p.name } });
+      if (existing) continue;
 
-    const category = categoryByName[p.category];
-    const brand = brandByName[p.brand];
-    const skuPrefix = `${category.slug.slice(0, 3)}-${brand.slug.slice(0, 3)}`.toUpperCase();
-    const sku = `${skuPrefix}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
-    // A real, category-relevant photo instead of the gradient/monogram fallback — deterministic,
-    // so re-running this seed never changes an already-created product's photo.
-    const imageUrl = productImageUrl(p.category, p.name);
+      const category = categoryByName[p.category];
+      const brand = brandByName[p.brand];
+      const skuPrefix = `${category.slug.slice(0, 3)}-${brand.slug.slice(0, 3)}`.toUpperCase();
+      const sku = `${skuPrefix}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+      // A real, category-relevant photo instead of the gradient/monogram fallback — deterministic,
+      // so re-running this seed never changes an already-created product's photo.
+      const imageUrl = productImageUrl(p.category, p.name);
 
-    await prisma.product.create({
-      data: {
-        storeId,
-        categoryId: category.id,
-        brandId: brand.id,
-        name: p.name,
-        slug: slugify(p.name),
-        sku,
-        description: `${p.name} — a ${category.name.toLowerCase()} essential from ${brand.name}, built for everyday performance and reliability.`,
-        price: p.price,
-        oldPrice: p.oldPrice || null,
-        costPrice: Math.round(p.price * 0.6 * 100) / 100,
-        stock: p.stock,
-        lowStockThreshold: 10,
-        status: "published",
-        isNew: Boolean(p.isNew),
-        ratingAvg: p.rating || 0,
-        ratingCount: p.rating ? Math.floor(50 + Math.random() * 250) : 0,
-        images: { create: [{ url: imageUrl, position: 0 }] },
-        options: p.options ? { create: p.options } : undefined,
-        variants: p.variants
-          ? { create: p.variants.map((v, i) => ({ sku: `${sku}-V${i + 1}`, combination: v.combination, stock: v.stock })) }
-          : undefined,
-      },
-    });
-    productsCreated += 1;
+      await prisma.product.create({
+        data: {
+          storeId,
+          categoryId: category.id,
+          brandId: brand.id,
+          name: p.name,
+          slug: slugify(p.name),
+          sku,
+          description: `${p.name} — a ${category.name.toLowerCase()} essential from ${brand.name}, built for everyday performance and reliability.`,
+          price: p.price,
+          oldPrice: p.oldPrice || null,
+          costPrice: Math.round(p.price * 0.6 * 100) / 100,
+          stock: p.stock,
+          lowStockThreshold: 10,
+          status: "published",
+          isNew: Boolean(p.isNew),
+          ratingAvg: p.rating || 0,
+          ratingCount: p.rating ? Math.floor(50 + Math.random() * 250) : 0,
+          images: { create: [{ url: imageUrl, position: 0 }] },
+          options: p.options ? { create: p.options } : undefined,
+          variants: p.variants
+            ? { create: p.variants.map((v, i) => ({ sku: `${sku}-V${i + 1}`, combination: v.combination, stock: v.stock })) }
+            : undefined,
+        },
+      });
+      productsCreated += 1;
+    }
   }
 
   const backfill = await backfillCatalogImages(prisma);
