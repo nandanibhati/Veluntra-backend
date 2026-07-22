@@ -15,7 +15,55 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 const CSV_PATH = process.argv[2] || path.join(os.homedir(), "Downloads", "products_export_1.csv");
-const STORE_NAME = "Veluntra";
+const STORE_NAME = process.argv[3] || "Veluntra";
+// When true, phone/tablet CSV rows whose (model, storage) already exists among the store's
+// real-brand products are skipped instead of created — used on production's "My Store",
+// which already stocks an overlapping refurbished-phone catalog under a different SKU scheme.
+const SKIP_MODEL_DUPES = process.argv[4] === "--skip-dupes";
+
+// ---------- Duplicate-model detection (only used when SKIP_MODEL_DUPES is set) ----------
+
+function extractStorage(name) {
+  const m = name.match(/(\d+)\s?gb/i);
+  return m ? `${m[1]}gb` : null;
+}
+
+function extractModel(name) {
+  const n = name.toLowerCase();
+  let m;
+  if ((m = n.match(/iphone\s*(\d+)\s*(pro\s*max|pro|plus|mini|e)?/))) {
+    return `iphone ${m[1]}${m[2] ? " " + m[2].trim() : ""}`.trim();
+  }
+  if ((m = n.match(/ipad\s*(pro\s*)?(\d+)\w*\s*gen/))) {
+    return `ipad ${m[1] || ""}${m[2]}gen`.trim();
+  }
+  if ((m = n.match(/\btab\s*([a-z0-9]+(\s*plus)?)\b/))) {
+    return `tab ${m[1].replace(/\s+/g, "")}`;
+  }
+  if ((m = n.match(/galaxy\s*(tab\s*)?([a-z]?\d+\w*)\s*(ultra|plus|fe)?/))) {
+    return `galaxy ${m[1] || ""}${m[2]}${m[3] ? " " + m[3] : ""}`.trim();
+  }
+  if ((m = n.match(/\b([as]\d{2,3}\w*)\b/))) {
+    return `galaxy ${m[1]}`;
+  }
+  if ((m = n.match(/z\s*(fold|flip)\s*(\d+)?/))) {
+    return `z ${m[1]}${m[2] ? m[2] : ""}`;
+  }
+  if ((m = n.match(/pixel\s*(\d+\w*)/))) {
+    return `pixel ${m[1]}`;
+  }
+  if ((m = n.match(/oneplus\s*(\d+\w*)/))) {
+    return `oneplus ${m[1]}`;
+  }
+  return null;
+}
+
+function dupeKeyFor(name) {
+  const model = extractModel(name);
+  const storage = extractStorage(name);
+  if (!model) return null;
+  return `${model}|${storage || "?"}`;
+}
 
 function slugify(input) {
   return input
@@ -274,8 +322,19 @@ async function main() {
   const existingSlugs = new Set((await prisma.product.findMany({ select: { slug: true } })).map((p) => p.slug));
   const existingSkus = new Set((await prisma.product.findMany({ select: { sku: true } })).map((p) => p.sku));
 
+  let existingDupeKeys = new Set();
+  if (SKIP_MODEL_DUPES) {
+    const realBrandProducts = await prisma.product.findMany({
+      where: { brand: { name: { in: ["Samsung", "Apple", "Google", "OnePlus"] } } },
+      select: { name: true },
+    });
+    existingDupeKeys = new Set(realBrandProducts.map((p) => dupeKeyFor(p.name)).filter(Boolean));
+    console.log(`Duplicate-skip enabled: ${existingDupeKeys.size} existing model+storage keys loaded`);
+  }
+
   let created = 0;
   let skipped = 0;
+  let skippedDupes = 0;
   const errors = [];
 
   for (const [handle, rows] of byHandle) {
@@ -286,6 +345,11 @@ async function main() {
 
       const slug = slugify(handle) || slugify(title);
       if (existingSlugs.has(slug)) { skipped++; continue; } // already imported (safe re-run)
+
+      if (SKIP_MODEL_DUPES) {
+        const key = dupeKeyFor(title);
+        if (key && existingDupeKeys.has(key)) { skippedDupes++; continue; }
+      }
 
       const category = categoryByName.get(categoryForRow(first));
       const brandName = brandForTitle(title);
@@ -368,7 +432,10 @@ async function main() {
     }
   }
 
-  console.log(`\nDone. Created ${created}, skipped ${skipped} (already existed / no data).`);
+  console.log(
+    `\nDone. Created ${created}, skipped ${skipped} (already existed / no data)` +
+      (SKIP_MODEL_DUPES ? `, skipped ${skippedDupes} (duplicate model already in catalog).` : ".")
+  );
   if (errors.length) {
     console.log(`${errors.length} errors:`);
     errors.slice(0, 20).forEach((e) => console.log(`  - ${e.handle}: ${e.message}`));
