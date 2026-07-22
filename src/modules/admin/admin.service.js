@@ -215,7 +215,10 @@ async function listOrders(query) {
   const [items, total] = await Promise.all([
     prisma.order.findMany({
       where,
-      include: { user: { select: { name: true } }, items: { include: { product: { select: { sku: true } } } } },
+      include: {
+        user: { select: { name: true } },
+        items: { include: { product: { select: { sku: true } }, variant: { select: { sku: true } } } },
+      },
       orderBy: { placedAt: "desc" },
       skip,
       take,

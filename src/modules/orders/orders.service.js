@@ -14,7 +14,7 @@ const { isRestockingTransition, restockTypeFor, isCancellableByCustomer } = requ
 const { resolveShipmentProvider } = require("../shipping/shipmentProviders");
 
 const ORDER_INCLUDE = {
-  items: true,
+  items: { include: { variant: { select: { sku: true } } } },
   shippingAddress: true,
   shippingMethod: true,
   coupon: true,
