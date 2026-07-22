@@ -11,6 +11,10 @@ const COLOR_HEX_RULES = [
   [/phantom\s*black/, "#0B0B0C"],
   [/jet\s*black/, "#0A0A0A"],
   [/graphite/, "#48494B"],
+  [/black\s*titanium/, "#3B3B3D"],
+  [/white\s*titanium/, "#E8E4DC"],
+  [/natural\s*titanium/, "#8A8D8F"],
+  [/desert\s*titanium/, "#C4A882"],
   [/titanium/, "#8A8D8F"],
   [/icy\s*blue/, "#A8C6DA"],
   [/navy/, "#1F2A44"],
@@ -66,11 +70,14 @@ function colorNameToHex(label) {
 }
 
 async function main() {
+  // Re-checks every color option, not just ones with no hex yet — rule refinements (e.g.
+  // splitting "titanium" into its Black/White/Natural/Desert variants) need to correct rows
+  // that already got a hex from an earlier, coarser version of this matcher.
   const options = await prisma.productOption.findMany({
-    where: { kind: "color", OR: [{ extra: null }, { extra: "" }] },
-    select: { id: true, label: true },
+    where: { kind: "color" },
+    select: { id: true, label: true, extra: true },
   });
-  console.log(`Found ${options.length} color options with no swatch hex`);
+  console.log(`Checking ${options.length} color options`);
 
   let updated = 0;
   let unmatched = 0;
@@ -78,10 +85,10 @@ async function main() {
   for (const opt of options) {
     const hex = colorNameToHex(opt.label);
     if (!hex) {
-      unmatched++;
-      unmatchedLabels.add(opt.label);
+      if (!opt.extra) { unmatched++; unmatchedLabels.add(opt.label); }
       continue;
     }
+    if (hex === opt.extra) continue;
     await prisma.productOption.update({ where: { id: opt.id }, data: { extra: hex } });
     updated++;
   }
