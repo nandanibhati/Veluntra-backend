@@ -690,21 +690,43 @@ async function exportForStore(storeId) {
 }
 
 /** Bulk create/update by SKU. Rows are plain objects (already parsed from CSV/JSON). */
+/** Rows that share a non-empty "groupKey" column become ONE product with a colour
+ * option/variant per row (e.g. the same phone model in Black/Gold/Grey, one SKU each).
+ * Rows with no groupKey behave exactly as before — one row, one flat product — so
+ * existing CSV templates without a groupKey/colour column are unaffected. */
+function partitionImportRows(rows) {
+  const groups = new Map();
+  const singles = [];
+  rows.forEach((row, index) => {
+    const groupKey = (row.groupKey || "").trim();
+    if (groupKey) {
+      if (!groups.has(groupKey)) groups.set(groupKey, []);
+      groups.get(groupKey).push({ ...row, __row: index + 1 });
+    } else {
+      singles.push({ ...row, __row: index + 1 });
+    }
+  });
+  return { groups, singles };
+}
+
 async function bulkImport(rows, { storeId, actorId }) {
   const results = { created: 0, updated: 0, errors: [] };
+  const { groups, singles } = partitionImportRows(rows);
 
   // Preload every category/brand/existing-SKU once instead of a per-row round trip —
   // a CSV import can be hundreds of rows.
+  const groupParentSkus = [...groups.entries()].map(([groupKey, groupRows]) => groupRows[0].parentSku || groupKey);
+  const allSkus = [...singles.map((r) => r.sku), ...groupParentSkus].filter(Boolean);
   const [categories, brands, existingProducts] = await Promise.all([
     prisma.category.findMany(),
     prisma.brand.findMany(),
-    prisma.product.findMany({ where: { sku: { in: rows.map((r) => r.sku).filter(Boolean) } } }),
+    prisma.product.findMany({ where: { sku: { in: allSkus } } }),
   ]);
   const categoryByName = new Map(categories.map((c) => [c.name, c]));
   const brandByName = new Map(brands.map((b) => [b.name, b]));
   const existingBySku = new Map(existingProducts.map((p) => [p.sku, p]));
 
-  for (const [index, row] of rows.entries()) {
+  for (const row of singles) {
     try {
       if (!row.sku || !row.name || !row.category || !row.brand || !row.price) {
         throw new Error("Missing required column (sku, name, category, brand, price)");
@@ -756,7 +778,94 @@ async function bulkImport(rows, { storeId, actorId }) {
         results.created += 1;
       }
     } catch (err) {
-      results.errors.push({ row: index + 1, message: err.message });
+      results.errors.push({ row: row.__row, message: err.message });
+    }
+  }
+
+  for (const [groupKey, groupRows] of groups) {
+    const first = groupRows[0];
+    try {
+      if (!first.name || !first.category || !first.brand || !first.price) {
+        throw new Error("Missing required column (name, category, brand, price)");
+      }
+      const category = categoryByName.get(first.category);
+      const brand = brandByName.get(first.brand);
+      if (!category) throw new Error(`Unknown category "${first.category}"`);
+      if (!brand) throw new Error(`Unknown brand "${first.brand}"`);
+      if (groupRows.some((r) => !r.sku)) throw new Error("Every variant row needs its own sku");
+
+      const parentSku = first.parentSku || groupKey;
+      const totalStock = groupRows.reduce((sum, r) => sum + (r.stock ? Number(r.stock) : 0), 0);
+      const anyPublished = groupRows.some((r) => r.status === "published" || r.status === "active");
+      const distinctColours = [...new Set(groupRows.map((r) => (r.colour || "").trim()).filter(Boolean))];
+
+      const options = distinctColours.map((label) => ({ kind: "color", label, extra: null, inStock: true }));
+      const variants = groupRows.map((r) => ({
+        sku: r.sku,
+        combination: r.colour ? { color: r.colour } : {},
+        price: Number(r.price),
+        stock: r.stock ? Number(r.stock) : 0,
+        isActive: r.status === "published" || r.status === "active",
+      }));
+
+      const data = {
+        name: first.name,
+        categoryId: category.id,
+        brandId: brand.id,
+        price: Number(first.price),
+        oldPrice: first.oldPrice ? Number(first.oldPrice) : null,
+        stock: totalStock,
+        status: anyPublished ? "published" : "draft",
+        description: first.description || "",
+        storeId,
+      };
+
+      const existing = existingBySku.get(parentSku);
+      if (existing) {
+        if (existing.storeId !== storeId) throw new Error(`SKU "${parentSku}" belongs to a different store`);
+        await prisma.$transaction(async (tx) => {
+          await tx.product.update({ where: { sku: parentSku }, data });
+          await tx.productOption.deleteMany({ where: { productId: existing.id } });
+          await tx.productOption.createMany({ data: options.map((o) => ({ ...o, productId: existing.id })) });
+          await tx.productVariant.deleteMany({ where: { productId: existing.id } });
+          for (const v of variants) {
+            await tx.productVariant.create({ data: { ...v, productId: existing.id } });
+          }
+        });
+        await logInventoryChange({
+          productId: existing.id,
+          type: "bulk_import",
+          quantityBefore: existing.stock,
+          quantityAfter: totalStock,
+          actorId,
+          reason: "CSV bulk import",
+        });
+        results.updated += 1;
+      } else {
+        const slug = await generateUniqueSlug(first.name);
+        const created = await prisma.product.create({
+          data: {
+            ...data,
+            sku: parentSku,
+            slug,
+            options: { create: options },
+            variants: { create: variants },
+          },
+        });
+        if (totalStock > 0) {
+          await logInventoryChange({
+            productId: created.id,
+            type: "bulk_import",
+            quantityBefore: 0,
+            quantityAfter: totalStock,
+            actorId,
+            reason: "CSV bulk import (new product)",
+          });
+        }
+        results.created += 1;
+      }
+    } catch (err) {
+      results.errors.push({ row: first.__row, message: err.message });
     }
   }
 
