@@ -38,4 +38,15 @@ const orderTrackLimiter = rateLimit({
   message: { success: false, error: { message: "Too many order lookups. Please try again later." } },
 });
 
-module.exports = { apiLimiter, authLimiter, suggestionLimiter, orderTrackLimiter };
+/** Guards the public "mark review as helpful" endpoint — it takes no auth (anonymous visitors
+ * can vote), so without a limiter a script can hammer one review's helpfulCount arbitrarily,
+ * which is what the homepage's featured-testimonials ordering is sorted by. */
+const reviewHelpfulLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: { message: "Too many requests. Please try again later." } },
+});
+
+module.exports = { apiLimiter, authLimiter, suggestionLimiter, orderTrackLimiter, reviewHelpfulLimiter };

@@ -2,6 +2,7 @@ const { Router } = require("express");
 const { z } = require("zod");
 const validate = require("../../middleware/validate");
 const { requireAuth } = require("../../middleware/auth");
+const { reviewHelpfulLimiter } = require("../../middleware/rateLimit");
 const { createReviewSchema } = require("./reviews.validation");
 const { idParamSchema } = require("../../utils/commonSchemas");
 const controller = require("./reviews.controller");
@@ -30,7 +31,7 @@ router.post("/", requireAuth, validate({ body: createReviewSchema }), controller
  *     tags: [Reviews]
  *     summary: Mark a review as helpful
  */
-router.post("/:reviewId/helpful", validate({ params: idParamSchema("reviewId") }), controller.markHelpful);
+router.post("/:reviewId/helpful", reviewHelpfulLimiter, validate({ params: idParamSchema("reviewId") }), controller.markHelpful);
 
 /**
  * @openapi

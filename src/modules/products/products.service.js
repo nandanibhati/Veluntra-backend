@@ -394,10 +394,14 @@ async function getAnalytics(id, { storeId, isAdmin }) {
 }
 
 async function bulkFindOwned(ids, { storeId, isAdmin }) {
-  const where = { id: { in: ids } };
+  // Dedupe first — `findMany` returns distinct rows, so a caller that accidentally sends a
+  // duplicate id (e.g. a UI double-submitting a bulk-select payload) would otherwise fail this
+  // count check even though every product genuinely exists and is owned.
+  const uniqueIds = [...new Set(ids)];
+  const where = { id: { in: uniqueIds } };
   if (!isAdmin) where.storeId = storeId;
   const products = await prisma.product.findMany({ where });
-  if (products.length !== ids.length) {
+  if (products.length !== uniqueIds.length) {
     throw ApiError.forbidden("One or more products were not found or are not owned by your store.");
   }
   return products;

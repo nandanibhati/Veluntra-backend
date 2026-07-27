@@ -32,16 +32,22 @@ async function decrementStock(tx, { productId, variantId = null, quantity, type 
 }
 
 /** Restores stock (cancellation/return/exchange), same logging contract as decrementStock.
+ * Uses an atomic increment (not a read-then-write) so two concurrent restores for the same
+ * product/variant can't clobber one another the way a JS-computed `quantityAfter` would.
  * A no-op if the product/variant row no longer exists (e.g. deleted after the order was placed)
  * — there's nothing to restock, and returning null lets the caller skip it silently. */
 async function restoreStock(tx, { productId, variantId = null, quantity, type, actorId = null, orderId = null }) {
   const model = variantId ? tx.productVariant : tx.product;
   const targetId = variantId || productId;
-  const before = await model.findUnique({ where: { id: targetId }, select: { stock: true } });
-  if (!before) return null;
-  const quantityAfter = before.stock + quantity;
-  await model.update({ where: { id: targetId }, data: { stock: quantityAfter } });
-  await logInventoryChange({ productId, variantId, type, quantityBefore: before.stock, quantityAfter, actorId, orderId }, tx);
+  let updated;
+  try {
+    updated = await model.update({ where: { id: targetId }, data: { stock: { increment: quantity } } });
+  } catch (err) {
+    if (err.code === "P2025") return null;
+    throw err;
+  }
+  const quantityAfter = updated.stock;
+  await logInventoryChange({ productId, variantId, type, quantityBefore: quantityAfter - quantity, quantityAfter, actorId, orderId }, tx);
   return quantityAfter;
 }
 

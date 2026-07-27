@@ -10,6 +10,7 @@ const { logActivity } = require("../../utils/activityLog");
 const { calculateTotals, pickBestPromotion } = require("../../utils/pricing");
 const fulfillmentService = require("../fulfillment/fulfillment.service");
 const inventoryService = require("../inventory/inventory.service");
+const warehouseInventoryService = require("../inventory/warehouseInventory.service");
 const { isRestockingTransition, restockTypeFor, isCancellableByCustomer } = require("./orderStateMachine");
 const { resolveShipmentProvider } = require("../shipping/shipmentProviders");
 
@@ -190,7 +191,32 @@ async function createFromCart(userId, { shippingAddressId, shippingMethodId, pay
     }
 
     if (cart.coupon) {
-      await tx.coupon.update({ where: { id: cart.coupon.id }, data: { usageCount: { increment: 1 } } });
+      // Re-validate against the coupon's current state rather than trusting what was true when
+      // it was applied to the cart — it may have expired, been disabled, or hit its usage limit
+      // in the meantime. The updateMany's `usageCount: freshCoupon.usageCount` condition is a
+      // compare-and-swap: if a concurrent checkout increments this coupon first, this UPDATE's
+      // WHERE clause no longer matches (Postgres re-evaluates it under the row lock), `count`
+      // comes back 0, and we fail closed instead of both checkouts redeeming a single-use code.
+      const freshCoupon = await tx.coupon.findUnique({ where: { id: cart.coupon.id } });
+      if (!freshCoupon || !freshCoupon.enabled || freshCoupon.expiresAt < new Date()) {
+        throw ApiError.badRequest("This code isn't valid or has expired.");
+      }
+      if (freshCoupon.usageCount >= freshCoupon.usageLimit) {
+        throw ApiError.badRequest("This code has reached its usage limit.");
+      }
+      if (userId) {
+        const redemptions = await tx.couponRedemption.count({ where: { couponId: freshCoupon.id, userId } });
+        if (redemptions >= freshCoupon.perUserLimit) {
+          throw ApiError.badRequest("You've already used this code the maximum number of times.");
+        }
+      }
+      const result = await tx.coupon.updateMany({
+        where: { id: freshCoupon.id, usageCount: freshCoupon.usageCount },
+        data: { usageCount: { increment: 1 } },
+      });
+      if (result.count === 0) {
+        throw ApiError.badRequest("This code isn't valid or has expired.");
+      }
       await tx.couponRedemption.create({
         data: { couponId: cart.coupon.id, userId, orderId: created[0]?.id },
       });
@@ -336,10 +362,15 @@ async function updateStatus(id, data, { storeId, isAdmin, actorId, ipAddress }) 
     const next = await tx.order.update({ where: { id }, data: finalData, include: ORDER_INCLUDE });
 
     // Inventory automation: restock when an order is cancelled, returned, or exchanged.
+    // Warehouse-fulfilled items were decremented from the separate WarehouseStock pool
+    // (see fulfillmentRequests.service.js's approve()), so they must be restored there too —
+    // restoring to Product.stock instead would inflate the seller's own stock count while
+    // leaving the warehouse pool permanently short.
     if (isRestocking) {
       const type = restockTypeFor(data.status);
       for (const item of order.items) {
-        await inventoryService.restoreStock(tx, {
+        const restore = item.fulfillmentSource === "veluntra_warehouse" ? warehouseInventoryService.restoreStock : inventoryService.restoreStock;
+        await restore(tx, {
           productId: item.productId,
           variantId: item.variantId,
           quantity: item.quantity,

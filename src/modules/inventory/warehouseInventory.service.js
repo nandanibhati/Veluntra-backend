@@ -30,25 +30,37 @@ async function logChange(tx, { productId, variantId, type, quantityBefore, quant
 }
 
 /** Admin top-up — always increases stock (a negative quantity doesn't make sense for
- * "provisioning"; use adjust() for corrections that can go either way). */
+ * "provisioning"; use adjust() for corrections that can go either way). Atomic increment,
+ * not a read-then-write, so two concurrent provisions can't clobber one another. */
 async function provision(tx, { productId, variantId = null, quantity, actorId = null, reason = null }) {
   if (quantity <= 0) throw ApiError.badRequest("Provision quantity must be positive.");
   const row = await getOrCreate(tx, { productId, variantId });
-  const quantityAfter = row.stock + quantity;
-  await tx.warehouseStock.update({ where: { id: row.id }, data: { stock: quantityAfter } });
-  await logChange(tx, { productId, variantId, type: "admin_provision", quantityBefore: row.stock, quantityAfter, actorId, reason });
+  const updated = await tx.warehouseStock.update({ where: { id: row.id }, data: { stock: { increment: quantity } } });
+  const quantityAfter = updated.stock;
+  await logChange(tx, { productId, variantId, type: "admin_provision", quantityBefore: quantityAfter - quantity, quantityAfter, actorId, reason });
   return quantityAfter;
 }
 
 /** Admin correction — a signed delta (positive or negative), for damage/miscount/recount, unlike
- * provision() which only ever increases stock. */
+ * provision() which only ever increases stock. Same atomic-conditional-UPDATE pattern as
+ * decrementStock for the negative case, so a below-zero adjustment can't race past the guard. */
 async function adjust(tx, { productId, variantId = null, delta, actorId = null, reason = null }) {
   const row = await getOrCreate(tx, { productId, variantId });
-  const quantityAfter = row.stock + delta;
-  if (quantityAfter < 0) throw ApiError.badRequest("Adjustment would take warehouse stock below zero.");
-  await tx.warehouseStock.update({ where: { id: row.id }, data: { stock: quantityAfter } });
-  await logChange(tx, { productId, variantId, type: "admin_adjustment", quantityBefore: row.stock, quantityAfter, actorId, reason });
-  return quantityAfter;
+  if (delta >= 0) {
+    const updated = await tx.warehouseStock.update({ where: { id: row.id }, data: { stock: { increment: delta } } });
+    const quantityAfter = updated.stock;
+    await logChange(tx, { productId, variantId, type: "admin_adjustment", quantityBefore: quantityAfter - delta, quantityAfter, actorId, reason });
+    return quantityAfter;
+  }
+  const decrement = -delta;
+  const result = await tx.warehouseStock.updateMany({
+    where: { id: row.id, stock: { gte: decrement } },
+    data: { stock: { decrement } },
+  });
+  if (result.count === 0) throw ApiError.badRequest("Adjustment would take warehouse stock below zero.");
+  const updated = await tx.warehouseStock.findUnique({ where: { id: row.id }, select: { stock: true } });
+  await logChange(tx, { productId, variantId, type: "admin_adjustment", quantityBefore: updated.stock + decrement, quantityAfter: updated.stock, actorId, reason });
+  return updated.stock;
 }
 
 /** Atomic, conditional decrement — same overselling guard as inventory.service.js's
@@ -72,13 +84,14 @@ async function decrementStock(tx, { productId, variantId = null, quantity, actor
   return updated.stock;
 }
 
-/** Restores warehouse stock (e.g. a warehouse-fulfilled order later gets cancelled/returned). */
+/** Restores warehouse stock (e.g. a warehouse-fulfilled order later gets cancelled/returned).
+ * Atomic increment, not a read-then-write, so two concurrent restores can't lose one. */
 async function restoreStock(tx, { productId, variantId = null, quantity, actorId = null, orderId = null }) {
   const row = await tx.warehouseStock.findFirst({ where: { productId, variantId } });
   if (!row) return null;
-  const quantityAfter = row.stock + quantity;
-  await tx.warehouseStock.update({ where: { id: row.id }, data: { stock: quantityAfter } });
-  await logChange(tx, { productId, variantId, type: "fulfillment_restore", quantityBefore: row.stock, quantityAfter, actorId, orderId });
+  const updated = await tx.warehouseStock.update({ where: { id: row.id }, data: { stock: { increment: quantity } } });
+  const quantityAfter = updated.stock;
+  await logChange(tx, { productId, variantId, type: "fulfillment_restore", quantityBefore: quantityAfter - quantity, quantityAfter, actorId, orderId });
   return quantityAfter;
 }
 
