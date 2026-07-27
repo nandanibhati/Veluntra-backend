@@ -38,6 +38,7 @@ const suggestionsRoutes = require("./modules/suggestions/suggestions.routes");
 const partnerApplicationsRoutes = require("./modules/partnerApplications/partnerApplications.routes");
 const dropshipOrderRequestsRoutes = require("./modules/dropshipOrderRequests/dropshipOrderRequests.routes");
 const wholesaleOrderRequestsRoutes = require("./modules/wholesaleOrderRequests/wholesaleOrderRequests.routes");
+const affiliatesRoutes = require("./modules/affiliates/affiliates.routes");
 
 const app = express();
 
@@ -107,6 +108,7 @@ v1.use("/suggestions", suggestionsRoutes);
 v1.use("/partner-applications", partnerApplicationsRoutes);
 v1.use("/dropship-order-requests", dropshipOrderRequestsRoutes);
 v1.use("/wholesale-order-requests", wholesaleOrderRequestsRoutes);
+v1.use("/affiliates", affiliatesRoutes);
 
 app.use("/api/v1", v1);
 

@@ -206,6 +206,12 @@ enum WholesaleOrderRequestStatus {
   cancelled
 }
 
+enum AffiliateCommissionStatus {
+  pending
+  approved
+  paid
+}
+
 // ---------- Models ----------
 
 model User {
@@ -238,6 +244,7 @@ model User {
   partnerApplications PartnerApplication[]
   dropshipOrderRequests DropshipOrderRequest[]
   wholesaleOrderRequests WholesaleOrderRequest[]
+  affiliateProfile   AffiliateProfile?
   refreshTokens      RefreshToken[]
   deviceTokens       DeviceToken[]
   passwordResetTokens PasswordResetToken[]
@@ -650,6 +657,40 @@ model WholesaleOrderRequest {
   @@index([wholesalerId])
   @@index([status])
   @@map("wholesale_order_requests")
+}
+
+// An affiliate's referral code + commission rate — created by admin after approving an
+// affiliate partner application. Phase 1 deliberately doesn't wire this into checkout (no
+// automatic per-order attribution): commission entries are recorded manually by admin, the same
+// admin-mediated pattern as Dropship/WholesaleOrderRequest, to avoid touching the live
+// checkout/payment path while this is still new.
+model AffiliateProfile {
+  id             String   @id @default(uuid())
+  userId         String   @unique @map("user_id")
+  referralCode   String   @unique @map("referral_code")
+  commissionRate Decimal  @default(10.00) @map("commission_rate") @db.Decimal(5, 2) // percent
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  commissions AffiliateCommission[]
+
+  @@map("affiliate_profiles")
+}
+
+model AffiliateCommission {
+  id                 String                    @id @default(uuid())
+  affiliateProfileId String                    @map("affiliate_profile_id")
+  description        String
+  saleAmount         Decimal                   @map("sale_amount") @db.Decimal(10, 2)
+  commissionAmount   Decimal                   @map("commission_amount") @db.Decimal(10, 2)
+  status             AffiliateCommissionStatus @default(pending)
+  createdAt          DateTime                  @default(now()) @map("created_at")
+
+  affiliateProfile AffiliateProfile @relation(fields: [affiliateProfileId], references: [id], onDelete: Cascade)
+
+  @@index([affiliateProfileId])
+  @@index([status])
+  @@map("affiliate_commissions")
 }
 
 model Cart {

@@ -15,6 +15,7 @@ const { idParamSchema } = require("../../utils/commonSchemas");
 const reviewsModerationRouter = require("../reviews/reviews.moderation.routes");
 const suggestionsModerationRouter = require("../suggestions/suggestions.moderation.routes");
 const partnerApplicationsModerationRouter = require("../partnerApplications/partnerApplications.moderation.routes");
+const affiliatesModerationRouter = require("../affiliates/affiliates.moderation.routes");
 const fulfillmentRequestsModerationRouter = require("../fulfillmentRequests/fulfillmentRequests.moderation.routes");
 const controller = require("./admin.controller");
 
@@ -238,6 +239,16 @@ router.use("/suggestions", suggestionsModerationRouter);
  *     security: [{ bearerAuth: [] }]
  */
 router.use("/partner-applications", partnerApplicationsModerationRouter);
+
+/**
+ * @openapi
+ * /admin/affiliates:
+ *   get:
+ *     tags: [Admin]
+ *     summary: Affiliate program — profiles, referral codes, commission ledger
+ *     security: [{ bearerAuth: [] }]
+ */
+router.use("/affiliates", affiliatesModerationRouter);
 
 /**
  * @openapi
