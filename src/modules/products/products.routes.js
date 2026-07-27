@@ -97,6 +97,16 @@ router.post("/import", requireAuth, requireRole("seller", "dropshipper", "admin"
 
 /**
  * @openapi
+ * /products/dropship-catalogue:
+ *   get:
+ *     tags: [Products]
+ *     summary: Browse the full catalogue at dropship pricing — approved dropshippers/admin only
+ *     security: [{ bearerAuth: [] }]
+ */
+router.get("/dropship-catalogue", requireAuth, requireRole("dropshipper", "admin"), controller.listDropshipCatalogue);
+
+/**
+ * @openapi
  * /products/bulk/price:
  *   post:
  *     tags: [Products]

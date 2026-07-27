@@ -49,6 +49,7 @@ const createProductSchema = z.object({
   price: z.coerce.number().positive(),
   oldPrice: z.coerce.number().positive().optional().nullable(),
   costPrice: z.coerce.number().positive().optional().nullable(), // used for profit analytics only, never shown to customers
+  dropshipPrice: z.coerce.number().positive().optional().nullable(), // what an approved dropshipper pays; shown only to dropshipper/admin accounts
   stock: z.coerce.number().int().min(0).default(0),
   lowStockThreshold: z.coerce.number().int().min(0).default(10),
   status: z.enum(PRODUCT_STATUSES).default("draft"),

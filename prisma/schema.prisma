@@ -392,6 +392,7 @@ model Product {
   price          Decimal       @db.Decimal(10, 2)
   oldPrice       Decimal?      @map("old_price") @db.Decimal(10, 2) // shown as the crossed-out MRP
   costPrice      Decimal?      @map("cost_price") @db.Decimal(10, 2)
+  dropshipPrice  Decimal?      @map("dropship_price") @db.Decimal(10, 2) // what an approved dropshipper pays; falls back to `price` when unset
   stock          Int           @default(0)
   reservedStock  Int           @default(0) @map("reserved_stock")
   lowStockThreshold Int        @default(10) @map("low_stock_threshold")

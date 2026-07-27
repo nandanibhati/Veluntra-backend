@@ -62,13 +62,15 @@ router.delete("/users/:id", validate({ params: idParamSchema() }), controller.de
  * /admin/users/{id}/role:
  *   patch:
  *     tags: [Admin]
- *     summary: Promote a customer to Admin, or demote an Admin back to customer (Super Admin only)
+ *     summary: >
+ *       Change a user's role. Granting/removing Admin access is Super Admin-only (enforced in
+ *       the service); any admin can approve/revoke dropshipper access.
  *     security: [{ bearerAuth: [] }]
  */
 router.post("/users/admins", requireRole("superadmin"), validate({ body: createAdminSchema }), controller.createAdmin);
 router.patch(
   "/users/:id/role",
-  requireRole("superadmin"),
+  requireRole("admin", "superadmin"),
   validate({ params: idParamSchema(), body: setUserRoleSchema }),
   controller.setUserRole
 );

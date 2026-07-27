@@ -27,7 +27,7 @@ const setUserStatus = asyncHandler(async (req, res) => {
 });
 
 const setUserRole = asyncHandler(async (req, res) => {
-  const user = await service.setUserRole(req.user.id, req.params.id, req.body.role, req.ip);
+  const user = await service.setUserRole(req.user.id, req.user.role, req.params.id, req.body.role, req.ip);
   sendSuccess(res, { data: user });
 });
 

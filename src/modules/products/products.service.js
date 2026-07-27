@@ -123,11 +123,49 @@ async function getByIdForManage(id, { storeId, isAdmin }) {
 function toPublicProduct(product) {
   const plain = toPlain(product);
   delete plain.costPrice;
+  delete plain.dropshipPrice;
   delete plain.reservedStock;
   if (plain.variants) {
     plain.variants = plain.variants.map((v) => ({ ...v, available: v.stock > 0 }));
   }
   return plain;
+}
+
+/** Approved-dropshipper catalogue shape: same as public, but keeps dropshipPrice (falling back
+ * to the retail price when a product has no dropship price of its own set yet). */
+function toDropshipProduct(product) {
+  const plain = toPublicProduct(product);
+  plain.dropshipPrice = product.dropshipPrice != null ? Number(product.dropshipPrice) : Number(product.price);
+  return plain;
+}
+
+/** Browse-only catalogue for approved dropshippers — every published product, at their special
+ * price, regardless of which store lists it (a dropshipper isn't scoped to one store's own
+ * inventory the way a seller managing their own listings is). */
+async function listForDropshipCatalogue(query) {
+  const { page, limit, skip, take } = parsePagination(query);
+  const where = { status: "published", store: { status: "approved" } };
+  if (query.category) where.category = { slug: query.category };
+  if (query.brand) where.brand = { slug: query.brand };
+  if (query.search) {
+    where.OR = [
+      { name: { contains: query.search, mode: "insensitive" } },
+      { description: { contains: query.search, mode: "insensitive" } },
+    ];
+  }
+
+  const [items, total] = await Promise.all([
+    prisma.product.findMany({
+      where,
+      include: PRODUCT_INCLUDE,
+      orderBy: SORT_MAP[query.sort] || SORT_MAP.featured,
+      skip,
+      take,
+    }),
+    prisma.product.count({ where }),
+  ]);
+
+  return { items: items.map(toDropshipProduct), page, limit, total };
 }
 
 async function create(data, { storeId, actorId, ipAddress }) {
@@ -880,6 +918,7 @@ module.exports = {
   list,
   getById,
   getByIdForManage,
+  listForDropshipCatalogue,
   create,
   update,
   remove,

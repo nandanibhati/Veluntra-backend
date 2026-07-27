@@ -44,11 +44,15 @@ async function setUserStatus(actorId, userId, status, ipAddress) {
 }
 
 /** Super-Admin-only: promotes an existing customer to admin staff, or demotes an admin back to customer. */
-async function setUserRole(actorId, userId, role, ipAddress) {
+async function setUserRole(actorId, actorRole, userId, role, ipAddress) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw ApiError.notFound("User not found.");
   if (user.role === "superadmin") throw ApiError.forbidden("The Super Admin's role can't be changed here.");
-  if (user.role === "seller" || user.role === "dropshipper")
+  // Granting admin panel access is security-sensitive and stays Super Admin-only, even though a
+  // plain admin can now also approve/revoke dropshipper access (a routine business decision).
+  if ((role === "admin" || user.role === "admin") && actorRole !== "superadmin")
+    throw ApiError.forbidden("Only the Super Admin can grant or remove Admin access.");
+  if (user.role === "seller" || (user.role === "dropshipper" && role === "admin"))
     throw ApiError.badRequest("Sellers and dropshippers can't be converted to admin from here — remove their store first if that's really what you want.");
 
   const updated = await prisma.user.update({ where: { id: userId }, data: { role } });
