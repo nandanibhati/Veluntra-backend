@@ -178,6 +178,19 @@ enum SuggestionStatus {
   archived
 }
 
+enum PartnerApplicationType {
+  dropship
+  wholesale
+  affiliate
+}
+
+enum PartnerApplicationStatus {
+  new
+  reviewed
+  approved
+  rejected
+}
+
 // ---------- Models ----------
 
 model User {
@@ -207,6 +220,7 @@ model User {
   notifications      Notification[]
   activityLogs       ActivityLog[]
   suggestions        Suggestion[]
+  partnerApplications PartnerApplication[]
   refreshTokens      RefreshToken[]
   deviceTokens       DeviceToken[]
   passwordResetTokens PasswordResetToken[]
@@ -527,6 +541,34 @@ model Suggestion {
 
   @@index([status])
   @@map("suggestions")
+}
+
+model PartnerApplication {
+  id            String                   @id @default(uuid())
+  type          PartnerApplicationType
+  firstName     String                   @map("first_name")
+  lastName      String                   @map("last_name")
+  email         String
+  phone         String
+  companyName   String?                  @map("company_name")
+  website       String?
+  taxId         String?                  @map("tax_id")
+  addressLine1  String?                  @map("address_line1")
+  addressLine2  String?                  @map("address_line2")
+  city          String?
+  country       String?
+  postalCode    String?                  @map("postal_code")
+  referralSource String?                 @map("referral_source")
+  message       String                   @db.Text
+  userId        String?                  @map("user_id")
+  status        PartnerApplicationStatus @default(new)
+  createdAt     DateTime                 @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([type])
+  @@index([status])
+  @@map("partner_applications")
 }
 
 model Cart {

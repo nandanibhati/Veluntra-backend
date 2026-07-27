@@ -49,4 +49,21 @@ const reviewHelpfulLimiter = rateLimit({
   message: { success: false, error: { message: "Too many requests. Please try again later." } },
 });
 
-module.exports = { apiLimiter, authLimiter, suggestionLimiter, orderTrackLimiter, reviewHelpfulLimiter };
+/** Guards the public partner-application form (dropship/wholesale/affiliate) from spam —
+ * same generous-but-bounded shape as suggestionLimiter. */
+const partnerApplicationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: { message: "Too many applications submitted. Please try again later." } },
+});
+
+module.exports = {
+  apiLimiter,
+  authLimiter,
+  suggestionLimiter,
+  orderTrackLimiter,
+  reviewHelpfulLimiter,
+  partnerApplicationLimiter,
+};

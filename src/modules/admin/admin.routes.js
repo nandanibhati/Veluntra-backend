@@ -14,6 +14,7 @@ const { updateOrderStatusSchema, assignSellerSchema } = require("../orders/order
 const { idParamSchema } = require("../../utils/commonSchemas");
 const reviewsModerationRouter = require("../reviews/reviews.moderation.routes");
 const suggestionsModerationRouter = require("../suggestions/suggestions.moderation.routes");
+const partnerApplicationsModerationRouter = require("../partnerApplications/partnerApplications.moderation.routes");
 const fulfillmentRequestsModerationRouter = require("../fulfillmentRequests/fulfillmentRequests.moderation.routes");
 const controller = require("./admin.controller");
 
@@ -225,6 +226,16 @@ router.use("/reviews", reviewsModerationRouter);
  *     security: [{ bearerAuth: [] }]
  */
 router.use("/suggestions", suggestionsModerationRouter);
+
+/**
+ * @openapi
+ * /admin/partner-applications:
+ *   get:
+ *     tags: [Admin]
+ *     summary: Dropship/wholesale/affiliate partner applications — list/review
+ *     security: [{ bearerAuth: [] }]
+ */
+router.use("/partner-applications", partnerApplicationsModerationRouter);
 
 /**
  * @openapi
