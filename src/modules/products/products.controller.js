@@ -54,6 +54,11 @@ const listDropshipCatalogue = asyncHandler(async (req, res) => {
   sendSuccess(res, { data: items, meta: paginationMeta({ page, limit, total }) });
 });
 
+const listWholesaleCatalogue = asyncHandler(async (req, res) => {
+  const { items, page, limit, total } = await service.listForWholesaleCatalogue(req.query);
+  sendSuccess(res, { data: items, meta: paginationMeta({ page, limit, total }) });
+});
+
 const getByIdForManage = asyncHandler(async (req, res) => {
   const ctx = await resolveActorContext(req);
   const product = await service.getByIdForManage(req.params.id, ctx);
@@ -218,6 +223,7 @@ module.exports = {
   getById,
   getByIdForManage,
   listDropshipCatalogue,
+  listWholesaleCatalogue,
   create,
   update,
   remove,

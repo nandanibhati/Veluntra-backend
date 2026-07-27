@@ -124,6 +124,7 @@ function toPublicProduct(product) {
   const plain = toPlain(product);
   delete plain.costPrice;
   delete plain.dropshipPrice;
+  delete plain.wholesalePrice;
   delete plain.reservedStock;
   if (plain.variants) {
     plain.variants = plain.variants.map((v) => ({ ...v, available: v.stock > 0 }));
@@ -166,6 +167,42 @@ async function listForDropshipCatalogue(query) {
   ]);
 
   return { items: items.map(toDropshipProduct), page, limit, total };
+}
+
+/** Approved-wholesaler catalogue shape: same as public, but keeps wholesalePrice (falling back
+ * to the retail price when a product has no wholesale price of its own set yet). */
+function toWholesaleProduct(product) {
+  const plain = toPublicProduct(product);
+  plain.wholesalePrice = product.wholesalePrice != null ? Number(product.wholesalePrice) : Number(product.price);
+  return plain;
+}
+
+/** Browse-only catalogue for approved wholesalers — same shape as the dropship catalogue, just
+ * priced and flagged differently. */
+async function listForWholesaleCatalogue(query) {
+  const { page, limit, skip, take } = parsePagination(query);
+  const where = { status: "published", store: { status: "approved" } };
+  if (query.category) where.category = { slug: query.category };
+  if (query.brand) where.brand = { slug: query.brand };
+  if (query.search) {
+    where.OR = [
+      { name: { contains: query.search, mode: "insensitive" } },
+      { description: { contains: query.search, mode: "insensitive" } },
+    ];
+  }
+
+  const [items, total] = await Promise.all([
+    prisma.product.findMany({
+      where,
+      include: PRODUCT_INCLUDE,
+      orderBy: SORT_MAP[query.sort] || SORT_MAP.featured,
+      skip,
+      take,
+    }),
+    prisma.product.count({ where }),
+  ]);
+
+  return { items: items.map(toWholesaleProduct), page, limit, total };
 }
 
 async function create(data, { storeId, actorId, ipAddress }) {
@@ -919,6 +956,7 @@ module.exports = {
   getById,
   getByIdForManage,
   listForDropshipCatalogue,
+  listForWholesaleCatalogue,
   create,
   update,
   remove,

@@ -52,8 +52,8 @@ async function setUserRole(actorId, actorRole, userId, role, ipAddress) {
   // plain admin can now also approve/revoke dropshipper access (a routine business decision).
   if ((role === "admin" || user.role === "admin") && actorRole !== "superadmin")
     throw ApiError.forbidden("Only the Super Admin can grant or remove Admin access.");
-  if (user.role === "seller" || (user.role === "dropshipper" && role === "admin"))
-    throw ApiError.badRequest("Sellers and dropshippers can't be converted to admin from here — remove their store first if that's really what you want.");
+  if (user.role === "seller" || ((user.role === "dropshipper" || user.role === "wholesaler") && role === "admin"))
+    throw ApiError.badRequest("Sellers and dropshippers/wholesalers can't be converted to admin from here — remove their store first if that's really what you want.");
 
   const updated = await prisma.user.update({ where: { id: userId }, data: { role } });
   await logActivity({

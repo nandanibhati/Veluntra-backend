@@ -5,12 +5,13 @@ const setUserStatusSchema = z.object({
 });
 
 // Deliberately excludes "seller" (tied to store creation at signup) and "superadmin"
-// (bootstrap-only, via the one-time seed.production.js env vars). "dropshipper" here only
-// grants dashboard access to browse the catalogue at dropship pricing (after approving a
-// partner application) — it does NOT create a Store the way registering as a dropshipper
-// used to, since a promoted dropshipper doesn't own any products/orders of their own.
+// (bootstrap-only, via the one-time seed.production.js env vars). "dropshipper"/"wholesaler"
+// here only grant dashboard access to browse the catalogue at that special pricing (after
+// approving a partner application) — neither creates a Store the way registering as a
+// dropshipper used to, since a promoted dropshipper/wholesaler doesn't own any products/orders
+// of their own.
 const setUserRoleSchema = z.object({
-  role: z.enum(["customer", "admin", "dropshipper"]),
+  role: z.enum(["customer", "admin", "dropshipper", "wholesaler"]),
 });
 
 const createAdminSchema = z.object({

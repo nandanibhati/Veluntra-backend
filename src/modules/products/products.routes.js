@@ -107,6 +107,16 @@ router.get("/dropship-catalogue", requireAuth, requireRole("dropshipper", "admin
 
 /**
  * @openapi
+ * /products/wholesale-catalogue:
+ *   get:
+ *     tags: [Products]
+ *     summary: Browse the full catalogue at wholesale pricing — approved wholesalers/admin only
+ *     security: [{ bearerAuth: [] }]
+ */
+router.get("/wholesale-catalogue", requireAuth, requireRole("wholesaler", "admin"), controller.listWholesaleCatalogue);
+
+/**
+ * @openapi
  * /products/bulk/price:
  *   post:
  *     tags: [Products]

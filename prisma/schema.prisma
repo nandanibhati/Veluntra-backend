@@ -13,6 +13,7 @@ enum Role {
   customer
   seller
   dropshipper
+  wholesaler
   admin
   superadmin
 }
@@ -198,6 +199,13 @@ enum DropshipOrderRequestStatus {
   cancelled
 }
 
+enum WholesaleOrderRequestStatus {
+  new
+  processing
+  fulfilled
+  cancelled
+}
+
 // ---------- Models ----------
 
 model User {
@@ -229,6 +237,7 @@ model User {
   suggestions        Suggestion[]
   partnerApplications PartnerApplication[]
   dropshipOrderRequests DropshipOrderRequest[]
+  wholesaleOrderRequests WholesaleOrderRequest[]
   refreshTokens      RefreshToken[]
   deviceTokens       DeviceToken[]
   passwordResetTokens PasswordResetToken[]
@@ -401,6 +410,7 @@ model Product {
   oldPrice       Decimal?      @map("old_price") @db.Decimal(10, 2) // shown as the crossed-out MRP
   costPrice      Decimal?      @map("cost_price") @db.Decimal(10, 2)
   dropshipPrice  Decimal?      @map("dropship_price") @db.Decimal(10, 2) // what an approved dropshipper pays; falls back to `price` when unset
+  wholesalePrice Decimal?      @map("wholesale_price") @db.Decimal(10, 2) // what an approved wholesaler pays; falls back to `price` when unset
   stock          Int           @default(0)
   reservedStock  Int           @default(0) @map("reserved_stock")
   lowStockThreshold Int        @default(10) @map("low_stock_threshold")
@@ -452,6 +462,7 @@ model Product {
   wishlistedBy WishlistItem[]
   promotions   Promotion[]
   dropshipOrderRequests DropshipOrderRequest[]
+  wholesaleOrderRequests WholesaleOrderRequest[]
   inventoryTransactions InventoryTransaction[]
   warehouseStock             WarehouseStock[]
   warehouseStockTransactions WarehouseStockTransaction[]
@@ -611,6 +622,34 @@ model DropshipOrderRequest {
   @@index([dropshipperId])
   @@index([status])
   @@map("dropship_order_requests")
+}
+
+// A wholesaler orders bulk stock for their own resale, not on a specific end customer's behalf
+// (unlike DropshipOrderRequest, which ships straight to the dropshipper's customer) — so this
+// only needs the wholesaler's own delivery address, not a customer's. Same phase-1 shape
+// otherwise: admin places/invoices the real order manually and advances its status here.
+model WholesaleOrderRequest {
+  id                  String                      @id @default(uuid())
+  wholesalerId        String                      @map("wholesaler_id")
+  productId           String                      @map("product_id")
+  quantity            Int                         @default(1)
+  unitPrice           Decimal                     @map("unit_price") @db.Decimal(10, 2)
+  addressLine1        String                      @map("address_line1")
+  addressLine2        String?                     @map("address_line2")
+  city                String
+  country             String
+  postalCode          String                      @map("postal_code")
+  purchaseOrderReference String?                  @map("purchase_order_reference")
+  specialInstructions String?                     @map("special_instructions") @db.Text
+  status              WholesaleOrderRequestStatus @default(new)
+  createdAt           DateTime                    @default(now()) @map("created_at")
+
+  wholesaler User    @relation(fields: [wholesalerId], references: [id], onDelete: Cascade)
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([wholesalerId])
+  @@index([status])
+  @@map("wholesale_order_requests")
 }
 
 model Cart {
