@@ -36,6 +36,7 @@ const homepageRoutes = require("./modules/homepage/homepage.routes");
 const paymentsRoutes = require("./modules/payments/payments.routes");
 const suggestionsRoutes = require("./modules/suggestions/suggestions.routes");
 const partnerApplicationsRoutes = require("./modules/partnerApplications/partnerApplications.routes");
+const dropshipOrderRequestsRoutes = require("./modules/dropshipOrderRequests/dropshipOrderRequests.routes");
 
 const app = express();
 
@@ -103,6 +104,7 @@ v1.use("/permissions", permissionsRoutes);
 v1.use("/homepage", homepageRoutes);
 v1.use("/suggestions", suggestionsRoutes);
 v1.use("/partner-applications", partnerApplicationsRoutes);
+v1.use("/dropship-order-requests", dropshipOrderRequestsRoutes);
 
 app.use("/api/v1", v1);
 

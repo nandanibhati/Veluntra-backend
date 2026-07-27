@@ -191,6 +191,13 @@ enum PartnerApplicationStatus {
   rejected
 }
 
+enum DropshipOrderRequestStatus {
+  new
+  processing
+  fulfilled
+  cancelled
+}
+
 // ---------- Models ----------
 
 model User {
@@ -221,6 +228,7 @@ model User {
   activityLogs       ActivityLog[]
   suggestions        Suggestion[]
   partnerApplications PartnerApplication[]
+  dropshipOrderRequests DropshipOrderRequest[]
   refreshTokens      RefreshToken[]
   deviceTokens       DeviceToken[]
   passwordResetTokens PasswordResetToken[]
@@ -443,6 +451,7 @@ model Product {
   orderItems   OrderItem[]
   wishlistedBy WishlistItem[]
   promotions   Promotion[]
+  dropshipOrderRequests DropshipOrderRequest[]
   inventoryTransactions InventoryTransaction[]
   warehouseStock             WarehouseStock[]
   warehouseStockTransactions WarehouseStockTransaction[]
@@ -570,6 +579,38 @@ model PartnerApplication {
   @@index([type])
   @@index([status])
   @@map("partner_applications")
+}
+
+// A phase-1, admin-fulfilled stand-in for real self-serve checkout: an approved dropshipper
+// submits who the end customer is and what they want, an admin manually places/ships the real
+// order and arranges payment outside the platform (bank transfer/invoice). unitPrice snapshots
+// the dropship price at request time so a later price change doesn't rewrite history.
+model DropshipOrderRequest {
+  id                 String                      @id @default(uuid())
+  dropshipperId       String                      @map("dropshipper_id")
+  productId          String                      @map("product_id")
+  quantity           Int                         @default(1)
+  unitPrice          Decimal                     @map("unit_price") @db.Decimal(10, 2)
+  customerName       String                      @map("customer_name")
+  customerEmail      String                      @map("customer_email")
+  customerPhone      String                      @map("customer_phone")
+  addressLine1       String                      @map("address_line1")
+  addressLine2       String?                     @map("address_line2")
+  city               String
+  country            String
+  postalCode         String                      @map("postal_code")
+  shippingService    String?                     @map("shipping_service")
+  customerReference  String?                     @map("customer_reference")
+  specialInstructions String?                    @map("special_instructions") @db.Text
+  status             DropshipOrderRequestStatus  @default(new)
+  createdAt          DateTime                    @default(now()) @map("created_at")
+
+  dropshipper User    @relation(fields: [dropshipperId], references: [id], onDelete: Cascade)
+  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([dropshipperId])
+  @@index([status])
+  @@map("dropship_order_requests")
 }
 
 model Cart {
