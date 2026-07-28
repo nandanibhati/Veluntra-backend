@@ -51,8 +51,19 @@ async function list(query) {
   const { page, limit, skip, take } = parsePagination(query);
   const where = { status: "published", store: { status: "approved" } };
 
-  if (query.category) where.category = { slug: query.category };
-  if (query.brand) where.brand = { slug: query.brand };
+  // Accepts a single slug or a comma-separated list (the storefront's category/brand filters
+  // are multi-select) — filtered server-side across the whole catalogue rather than the
+  // frontend fetching one page and filtering client-side, which silently returned zero results
+  // for any category/brand combo not represented in that page once the catalogue grew past a
+  // few hundred products.
+  if (query.category) {
+    const slugs = query.category.split(",").filter(Boolean);
+    where.category = slugs.length > 1 ? { slug: { in: slugs } } : { slug: slugs[0] };
+  }
+  if (query.brand) {
+    const slugs = query.brand.split(",").filter(Boolean);
+    where.brand = slugs.length > 1 ? { slug: { in: slugs } } : { slug: slugs[0] };
+  }
   if (query.storeId) where.storeId = query.storeId;
   if (query.ids) where.id = { in: query.ids.split(",").filter(Boolean) };
   if (query.tag) where.tags = { has: query.tag };
@@ -146,8 +157,19 @@ function toDropshipProduct(product) {
 async function listForDropshipCatalogue(query) {
   const { page, limit, skip, take } = parsePagination(query);
   const where = { status: "published", store: { status: "approved" } };
-  if (query.category) where.category = { slug: query.category };
-  if (query.brand) where.brand = { slug: query.brand };
+  // Accepts a single slug or a comma-separated list (the storefront's category/brand filters
+  // are multi-select) — filtered server-side across the whole catalogue rather than the
+  // frontend fetching one page and filtering client-side, which silently returned zero results
+  // for any category/brand combo not represented in that page once the catalogue grew past a
+  // few hundred products.
+  if (query.category) {
+    const slugs = query.category.split(",").filter(Boolean);
+    where.category = slugs.length > 1 ? { slug: { in: slugs } } : { slug: slugs[0] };
+  }
+  if (query.brand) {
+    const slugs = query.brand.split(",").filter(Boolean);
+    where.brand = slugs.length > 1 ? { slug: { in: slugs } } : { slug: slugs[0] };
+  }
   if (query.search) {
     where.OR = [
       { name: { contains: query.search, mode: "insensitive" } },
@@ -182,8 +204,19 @@ function toWholesaleProduct(product) {
 async function listForWholesaleCatalogue(query) {
   const { page, limit, skip, take } = parsePagination(query);
   const where = { status: "published", store: { status: "approved" } };
-  if (query.category) where.category = { slug: query.category };
-  if (query.brand) where.brand = { slug: query.brand };
+  // Accepts a single slug or a comma-separated list (the storefront's category/brand filters
+  // are multi-select) — filtered server-side across the whole catalogue rather than the
+  // frontend fetching one page and filtering client-side, which silently returned zero results
+  // for any category/brand combo not represented in that page once the catalogue grew past a
+  // few hundred products.
+  if (query.category) {
+    const slugs = query.category.split(",").filter(Boolean);
+    where.category = slugs.length > 1 ? { slug: { in: slugs } } : { slug: slugs[0] };
+  }
+  if (query.brand) {
+    const slugs = query.brand.split(",").filter(Boolean);
+    where.brand = slugs.length > 1 ? { slug: { in: slugs } } : { slug: slugs[0] };
+  }
   if (query.search) {
     where.OR = [
       { name: { contains: query.search, mode: "insensitive" } },
