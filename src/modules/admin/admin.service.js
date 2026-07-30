@@ -246,7 +246,13 @@ async function listProducts(query) {
   const [items, total] = await Promise.all([
     prisma.product.findMany({
       where,
-      include: { category: true, brand: true },
+      include: {
+        category: true,
+        brand: true,
+        store: { select: { name: true } },
+        images: { orderBy: { position: "asc" }, take: 1 },
+        _count: { select: { variants: true } },
+      },
       orderBy: { createdAt: "desc" },
       skip,
       take,
