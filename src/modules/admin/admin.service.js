@@ -331,6 +331,11 @@ async function dashboardSummary() {
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
+  const d30 = new Date(todayStart);
+  d30.setDate(d30.getDate() - 30);
+  const d60 = new Date(todayStart);
+  d60.setDate(d60.getDate() - 60);
+
   const [
     ov,
     pendingOrders,
@@ -340,6 +345,10 @@ async function dashboardSummary() {
     lowStockProducts,
     outOfStockCount,
     recentOrders,
+    last30Agg,
+    prev30Agg,
+    last30NewCustomers,
+    prev30NewCustomers,
   ] = await Promise.all([
     overview(),
     prisma.order.count({ where: { status: "pending" } }),
@@ -358,7 +367,16 @@ async function dashboardSummary() {
       take: 6,
       include: { user: { select: { name: true } } },
     }),
+    prisma.order.aggregate({ where: { placedAt: { gte: d30 }, status: { not: "cancelled" } }, _sum: { total: true }, _count: true }),
+    prisma.order.aggregate({ where: { placedAt: { gte: d60, lt: d30 }, status: { not: "cancelled" } }, _sum: { total: true }, _count: true }),
+    prisma.user.count({ where: { role: "customer", createdAt: { gte: d30 } } }),
+    prisma.user.count({ where: { role: "customer", createdAt: { gte: d60, lt: d30 } } }),
   ]);
+
+  const pctChange = (curr, prev) => {
+    if (!prev) return curr > 0 ? 100 : 0;
+    return Math.round(((curr - prev) / prev) * 1000) / 10;
+  };
 
   return {
     ...ov,
@@ -372,6 +390,14 @@ async function dashboardSummary() {
     recentOrders: recentOrders.map((o) =>
       toPlain({ id: o.id, orderNumber: o.orderNumber, customer: o.user.name, total: o.total, status: o.status, placedAt: o.placedAt })
     ),
+    last30: {
+      revenue: Number(last30Agg._sum.total || 0),
+      revenueChangePct: pctChange(Number(last30Agg._sum.total || 0), Number(prev30Agg._sum.total || 0)),
+      orders: last30Agg._count,
+      ordersChangePct: pctChange(last30Agg._count, prev30Agg._count),
+      newCustomers: last30NewCustomers,
+      newCustomersChangePct: pctChange(last30NewCustomers, prev30NewCustomers),
+    },
   };
 }
 
